@@ -52,8 +52,8 @@
 	const doneRequests = $derived(requests.filter((r) => r.status === 'done'));
 	const doneRequestsSorted = $derived(
 		[...doneRequests].sort((a, b) => {
-			const ta = parseRequestTimestamp(a)?.getTime() ?? 0;
-			const tb = parseRequestTimestamp(b)?.getTime() ?? 0;
+			const ta = parsePbDate(a.completed_at)?.getTime() ?? 0;
+			const tb = parsePbDate(b.completed_at)?.getTime() ?? 0;
 			if (tb !== ta) return tb - ta;
 			return b.id.localeCompare(a.id);
 		})
