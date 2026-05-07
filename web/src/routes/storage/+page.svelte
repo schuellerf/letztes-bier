@@ -7,6 +7,7 @@
 	import { getDeviceNickname } from '$lib/device_nickname';
 	import { notifyNewPendingRequest } from '$lib/notifications';
 	import { summarizeItems } from '$lib/items';
+	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate } from '$lib/dates';
 	import { registerRealtimeCleanup } from '$lib/logout_hooks';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockRequestRecord } from '$lib/types';
@@ -23,6 +24,7 @@
 	let authValid = $state(false);
 	let record = $state<RecordModel | null>(null);
 	let unsub: null | (() => void) = null;
+	let nowMs = $state(Date.now());
 
 	const role = $derived(roleFromRecord(record));
 
@@ -38,6 +40,7 @@
 			const list = await pb()
 				.collection(COLLECTIONS.requests)
 				.getFullList<StockRequestRecord>({
+					requestKey: null,
 					// Client reorders by `created`; server may reject sort=created.
 					sort: 'id',
 					filter: storageOpenRequestsFilter(),
@@ -118,13 +121,17 @@
 				if (ev.action === 'create') {
 					const r = ev.record;
 					if (r.status === 'pending') {
-						notifyNewPendingRequest(r.id, r.bar_name, r.bar_device_nickname);
+						notifyNewPendingRequest(r.id, r.bar_name, r.bar_device_nickname, r.items);
 					}
 				}
 			});
 	}
 
 	onMount(() => {
+		const clock = setInterval(() => {
+			nowMs = Date.now();
+		}, 1000);
+
 		const removeCleanup = registerRealtimeCleanup(() => {
 			if (unsub) {
 				unsub();
@@ -158,6 +165,7 @@
 			.catch(() => {});
 
 		return () => {
+			clearInterval(clock);
 			removeCleanup();
 			unsubAuth();
 			if (unsub) unsub();
@@ -227,22 +235,27 @@
 				<li class="rounded-2xl border-2 border-amber-700/60 bg-zinc-900/50 p-4">
 					<div class="mb-2 flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p class="text-xs uppercase tracking-wide text-zinc-500">
-								{new Date(r.created).toLocaleString()}
+							<p
+								class="text-xs uppercase tracking-wide text-zinc-500"
+								title={formatPbDateTime(r.created)}
+							>
+								Requested {elapsedHhMmSsSince(parsePbDate(r.created), nowMs)} ago
 							</p>
 							<p class="text-2xl font-semibold text-zinc-100">{r.bar_name}</p>
 							{#if r.bar_device_nickname}
 								<p class=" text-lg text-amber-200/90">Bar device: {r.bar_device_nickname}</p>
 							{/if}
 						</div>
-						<button
-							type="button"
-							disabled={busyId === r.id}
-							class="min-h-[52px] min-w-[180px] rounded-xl bg-sky-600 px-6 py-4 text-xl font-bold text-white hover:bg-sky-500 disabled:opacity-50"
-							onclick={() => acceptRequest(r)}
-						>
-							Accept
-						</button>
+						<div class="flex flex-col items-end gap-2">
+							<button
+								type="button"
+								disabled={busyId === r.id}
+								class="min-h-[52px] min-w-[180px] rounded-xl bg-sky-600 px-6 py-4 text-xl font-bold text-white hover:bg-sky-500 disabled:opacity-50"
+								onclick={() => acceptRequest(r)}
+							>
+								Accept
+							</button>
+						</div>
 					</div>
 					<p class="text-xl text-zinc-200">{summarizeItems(r.items, 300)}</p>
 				</li>

@@ -5,8 +5,9 @@
 	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
 	import { roleFromRecord, barIdFromRecord } from '$lib/auth';
 	import { getDeviceNickname } from '$lib/device_nickname';
-	import { notifyRequestAccepted } from '$lib/notifications';
+	import { notifyRequestAccepted, notifyPendingReminder } from '$lib/notifications';
 	import { normalizeItems, summarizeItems } from '$lib/items';
+	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate } from '$lib/dates';
 	import { registerRealtimeCleanup } from '$lib/logout_hooks';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockItem, StockRequestRecord } from '$lib/types';
@@ -33,6 +34,8 @@
 	let listError = $state('');
 	let loading = $state(false);
 	let requests = $state<StockRequestRecord[]>([]);
+	let nowMs = $state(Date.now());
+	let doneOpen = $state(false);
 	let pickLabel = $state('');
 	let pickQty = $state(1);
 	let joinMismatch = $state(false);
@@ -44,6 +47,8 @@
 	const role = $derived(roleFromRecord(record));
 	const barExpand = $derived(record?.expand?.bar as { name?: string } | undefined);
 	const barDisplayName = $derived(barExpand?.name ?? 'Your bar');
+	const openRequests = $derived(requests.filter((r) => r.status !== 'done'));
+	const doneRequests = $derived(requests.filter((r) => r.status === 'done'));
 
 	function syncAuth() {
 		authValid = pb().authStore.isValid;
@@ -58,6 +63,7 @@
 			const list = await pb()
 				.collection(COLLECTIONS.requests)
 				.getFullList<StockRequestRecord>({
+					requestKey: null,
 					// PB may reject sort on `created` for this schema; `id` order matches creation closely.
 					sort: '-id',
 					filter: barRequestsFilter(bid),
@@ -180,6 +186,10 @@
 	}
 
 	onMount(() => {
+		const clock = setInterval(() => {
+			nowMs = Date.now();
+		}, 1000);
+
 		let removeCleanup: (() => void) | undefined;
 		removeCleanup = registerRealtimeCleanup(() => {
 			if (unsubRequests) {
@@ -217,6 +227,7 @@
 			.catch(() => {});
 
 		return () => {
+			clearInterval(clock);
 			removeCleanup?.();
 			unsubAuth();
 			if (unsubRequests) unsubRequests();
@@ -287,9 +298,12 @@
 		<h2 class="mb-3 text-2xl font-semibold text-zinc-200">Quick add</h2>
 		<div class="mb-3 flex flex-wrap gap-2">
 			{#each PRESETS as p}
+				{@const inCart = cart.some((line) => line.label === p)}
 				<button
 					type="button"
-					class="rounded-xl border border-zinc-600 bg-zinc-800 px-4 py-4 text-xl hover:bg-zinc-700"
+					class="rounded-xl border px-4 py-4 text-xl {inCart
+						? 'border-sky-500 bg-sky-800 text-sky-100 shadow-md shadow-sky-950/50'
+						: 'border-zinc-600 bg-zinc-800 hover:bg-zinc-700'}"
 					onclick={() => addPreset(p)}
 				>
 					{p}
@@ -352,25 +366,79 @@
 	<section>
 		<h2 class="mb-3 text-2xl font-semibold text-zinc-200">Your recent requests</h2>
 		<ul class="space-y-3">
-			{#each requests as r}
+			{#each openRequests as r}
 				<li class="rounded-xl border border-zinc-700 bg-zinc-900/30 p-4">
 					<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+						<div class="flex flex-wrap items-center gap-2">
+							<span
+								class="rounded-full px-3 py-1 text-sm font-medium {r.status === 'pending'
+									? 'bg-amber-900/60 text-amber-200'
+									: 'bg-sky-900/50 text-sky-200'}"
+							>
+								{statusLabel(r.status)}
+							</span>
+							{#if r.status === 'pending'}
+								<button
+									type="button"
+									class="rounded-lg border border-zinc-500 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-800"
+									onclick={() =>
+										notifyPendingReminder(r.id, r.bar_name, r.bar_device_nickname, r.items)}
+								>
+									Notify again
+								</button>
+							{/if}
+						</div>
 						<span
-							class="rounded-full px-3 py-1 text-sm font-medium {r.status === 'pending'
-								? 'bg-amber-900/60 text-amber-200'
-								: r.status === 'accepted'
-									? 'bg-sky-900/50 text-sky-200'
-									: 'bg-zinc-700 text-zinc-200'}"
+							class="cursor-default text-sm text-zinc-500"
+							title={formatPbDateTime(r.created)}
 						>
-							{statusLabel(r.status)}
+							Requested {elapsedHhMmSsSince(parsePbDate(r.created), nowMs)} ago
 						</span>
-						<span class="text-sm text-zinc-500">{new Date(r.created).toLocaleString()}</span>
 					</div>
+					{#if r.status === 'accepted' && r.accepted_by_nickname?.trim()}
+						<p class="mb-1 text-sm text-sky-300">
+							Accepted by {r.accepted_by_nickname.trim()}
+						</p>
+					{/if}
 					<p class="text-lg text-zinc-200">{summarizeItems(r.items, 200)}</p>
 				</li>
-			{:else}
-				<li class="text-zinc-500">No requests yet.</li>
 			{/each}
+			{#if openRequests.length === 0 && doneRequests.length === 0}
+				<li class="text-zinc-500">No requests yet.</li>
+			{/if}
 		</ul>
+
+		{#if doneRequests.length > 0}
+			<details class="mt-4 rounded-xl border border-zinc-700 bg-zinc-900/20 [&_summary::-webkit-details-marker]:hidden" bind:open={doneOpen}>
+				<summary
+					class="cursor-pointer select-none list-none px-4 py-3 text-lg font-medium text-zinc-300"
+				>
+					{doneOpen ? 'v' : '>'} done items ({doneRequests.length})
+				</summary>
+				<ul class="space-y-3 border-t border-zinc-700 px-4 pb-4 pt-3">
+					{#each doneRequests as r}
+						<li class="rounded-xl border border-zinc-700 bg-zinc-900/30 p-4">
+							<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+								<span class="rounded-full bg-zinc-700 px-3 py-1 text-sm font-medium text-zinc-200">
+									{statusLabel(r.status)}
+								</span>
+								<span
+									class="cursor-default text-sm text-zinc-500"
+									title={formatPbDateTime(r.completed_at)}
+								>
+									Completed {elapsedHhMmSsSince(parsePbDate(r.completed_at), nowMs)} ago
+								</span>
+							</div>
+							{#if r.accepted_by_nickname?.trim()}
+								<p class="mb-1 text-sm text-sky-300">
+									Accepted by {r.accepted_by_nickname.trim()}
+								</p>
+							{/if}
+							<p class="text-lg text-zinc-200">{summarizeItems(r.items, 200)}</p>
+						</li>
+					{/each}
+				</ul>
+			</details>
+		{/if}
 	</section>
 {/if}

@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { itemsAsNotificationBody } from '$lib/items';
 
 const seenKeys = new Set<string>();
 
@@ -31,20 +32,34 @@ export function notifyOnce(
 	}
 }
 
+function storageNotifyTitle(barName: string, barNick?: string): string {
+	const nick = barNick?.trim();
+	return nick ? `${barName} (${nick})` : barName;
+}
+
 export function notifyNewPendingRequest(
 	recordId: string,
 	barName: string,
-	barNick?: string
+	barNick?: string,
+	items?: unknown
 ) {
-	const nick = barNick?.trim();
-	const who = nick ? `${barName} (${nick})` : barName;
-	notifyOnce(
-		'storage-new',
-		recordId,
-		'create',
-		'Letztes Bier — neue Anfrage',
-		who
-	);
+	const title = storageNotifyTitle(barName, barNick);
+	const body = itemsAsNotificationBody(items);
+	notifyOnce('storage-new', recordId, 'create', title, body || undefined);
+}
+
+/** Manual repeat: new transition each time so it always shows. */
+export function notifyPendingReminder(
+	recordId: string,
+	barName: string,
+	barNick?: string,
+	items?: unknown
+) {
+	if (!browser || Notification.permission !== 'granted') return;
+	const title = storageNotifyTitle(barName, barNick);
+	const body = itemsAsNotificationBody(items);
+	const transition = `remind-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	notifyOnce('storage-new', recordId, transition, title, body || undefined);
 }
 
 export function notifyRequestAccepted(

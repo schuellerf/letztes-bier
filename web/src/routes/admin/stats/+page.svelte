@@ -4,6 +4,7 @@
 	import { formatPbClientError, logPbError } from '$lib/pb_errors';
 	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
 	import { roleFromRecord } from '$lib/auth';
+	import { parsePbDate } from '$lib/dates';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockRequestRecord } from '$lib/types';
 
@@ -62,7 +63,7 @@
 		try {
 			const items = await pb()
 				.collection(COLLECTIONS.requests)
-				.getFullList<StockRequestRecord>({ perPage: 500, sort: '-id' });
+				.getFullList<StockRequestRecord>({ perPage: 500, sort: '-id', requestKey: null });
 
 			const barCounts: Record<string, number> = {};
 			const pickMs: number[] = [];
@@ -71,15 +72,19 @@
 
 			for (const r of items) {
 				barCounts[r.bar_name] = (barCounts[r.bar_name] ?? 0) + 1;
-				const c = new Date(r.created).getTime();
-				const h = new Date(r.created).getHours();
+				const cDate = parsePbDate(r.created);
+				if (!cDate) continue;
+				const c = cDate.getTime();
+				const h = cDate.getHours();
 				hours[h]++;
 
 				if (r.status === 'done' && r.accepted_at) {
-					pickMs.push(new Date(r.accepted_at).getTime() - c);
+					const a = parsePbDate(r.accepted_at);
+					if (a) pickMs.push(a.getTime() - c);
 				}
 				if (r.status === 'done' && r.completed_at) {
-					totalMs.push(new Date(r.completed_at).getTime() - c);
+					const d = parsePbDate(r.completed_at);
+					if (d) totalMs.push(d.getTime() - c);
 				}
 			}
 
