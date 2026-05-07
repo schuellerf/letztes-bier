@@ -23,7 +23,6 @@ help:
 	@echo "  make build           - build $(IMAGE_TAG) from $(CONTAINERFILE)"
 	@echo "  make run             - ensure pb_data/, build, then HTTP on port $(PORT) (dev entrypoint)"
 	@echo "  make clean           - remove web/build, web/.svelte-kit; drop $(IMAGE_TAG) (keeps pb_data/)"
-	@echo "  make proxmox-ct-image - alias for build (Proxmox packaging)"
 	@echo "  make proxmox-ct      - gzip rootfs tarball for Proxmox vztmpl -> $(DIST_DIR)/"
 	@echo "  make clean-dist      - remove $(DIST_DIR)/"
 	@echo "Variables: ENGINE=$(ENGINE) IMAGE_TAG=$(IMAGE_TAG) PORT=$(PORT)"
@@ -34,8 +33,6 @@ pb_data:
 
 build:
 	$(ENGINE) build -f $(CONTAINERFILE) -t $(IMAGE_TAG) .
-
-proxmox-ct-image: build
 
 run: build | pb_data
 	$(ENGINE) run --rm --entrypoint /pb/pocketbase \
@@ -51,7 +48,7 @@ clean:
 	rm -rf web/build web/.svelte-kit
 	-$(ENGINE) rmi $(IMAGE_TAG) 2>/dev/null || true
 
-proxmox-ct: proxmox-ct-image
+proxmox-ct: build
 	@STAMP=$$(date +%Y%m%d_%H%M%S); \
 	ROOT="$(CURDIR)" CONTAINER_RUNTIME="$(CONTAINER_RUNTIME)" IMAGE_TAG="$(IMAGE_TAG)" \
 		DIST_DIR="$(DIST_DIR)" TEMPLATE_BASENAME="$(TEMPLATE_BASENAME)" TEMPLATE_STAMP="$$STAMP" \
