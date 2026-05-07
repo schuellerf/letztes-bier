@@ -7,6 +7,8 @@ CONTAINERFILE ?= Containerfile
 CONTAINER_RUNTIME ?= $(ENGINE)
 DIST_DIR ?= $(CURDIR)/dist
 TEMPLATE_BASENAME ?= letztes-bier_ct-template
+# Optional: bake Proxmox LXC autocert hostname into /etc/default/letztes-bier at image build, e.g. `make proxmox-ct PB_DOMAIN=host.example.com`
+PB_DOMAIN ?=
 
 ifeq ($(ENGINE),podman)
 VOL_LABEL := :Z
@@ -25,14 +27,16 @@ help:
 	@echo "  make clean           - remove web/build, web/.svelte-kit; drop $(IMAGE_TAG) (keeps pb_data/)"
 	@echo "  make proxmox-ct      - gzip rootfs tarball for Proxmox vztmpl -> $(DIST_DIR)/"
 	@echo "  make clean-dist      - remove $(DIST_DIR)/"
-	@echo "Variables: ENGINE=$(ENGINE) IMAGE_TAG=$(IMAGE_TAG) PORT=$(PORT)"
+	@echo "Variables: ENGINE=$(ENGINE) IMAGE_TAG=$(IMAGE_TAG) PORT=$(PORT) PB_DOMAIN=(optional, image build)"
 
 # Host dir for bind-mount — only required by `run`, not image `build`.
 pb_data:
 	@mkdir -p pb_data
 
 build:
-	$(ENGINE) build -f $(CONTAINERFILE) -t $(IMAGE_TAG) .
+	$(ENGINE) build -f $(CONTAINERFILE) -t $(IMAGE_TAG) \
+		--build-arg PB_DOMAIN="$(PB_DOMAIN)" \
+		.
 
 run: build | pb_data
 	$(ENGINE) run --rm --entrypoint /pb/pocketbase \

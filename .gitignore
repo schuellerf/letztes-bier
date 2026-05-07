@@ -7,7 +7,7 @@ web/build/
 web/dist/
 .playwright-mcp/
 web/node_modules/
-
+dist/
 # Env / secrets (keep example tracked)
 web/.env
 web/.env.*
@@ -23,6 +23,7 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+.envrc
 
 # IDE (uncomment .vscode if you never commit workspace settings)
 .idea/

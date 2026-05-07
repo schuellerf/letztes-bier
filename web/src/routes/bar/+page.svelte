@@ -565,7 +565,7 @@
 							</span>
 							{#if r.storage_name}
 								<span class="rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400"
-									>Hub: {r.storage_name}</span
+									>{r.storage_name}</span
 								>
 							{/if}
 							{#if r.status === 'pending' || r.status === 'accepted'}

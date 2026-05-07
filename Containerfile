@@ -7,10 +7,45 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
-FROM alpine:3.20
-RUN apk add --no-cache ca-certificates curl unzip \
-	&& PB_VER=0.37.5 \
+# Appliance rootfs for Proxmox vztmpl: Debian + systemd + DHCP on eth0 (ifupdown + dhclient).
+FROM debian:bookworm
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	ca-certificates \
+	curl \
+	dbus \
+	ifupdown \
+	iproute2 \
+	isc-dhcp-client \
+	libpam-systemd \
+	systemd \
+	systemd-sysv \
+	unzip \
+	&& rm -rf /var/lib/apt/lists/*
+
+RUN dbus-uuidgen --ensure=/etc/machine-id \
+	&& ln -sf /etc/machine-id /var/lib/dbus/machine-id \
+	&& ln -sf /dev/null /etc/systemd/system/systemd-networkd.service \
+	&& ln -sf /dev/null /etc/systemd/system/systemd-networkd.socket \
+	&& ln -sf /dev/null /etc/systemd/system/systemd-resolved.service
+
+COPY packaging/network.interfaces /etc/network/interfaces
+COPY packaging/letztes-bier.service /etc/systemd/system/letztes-bier.service
+COPY packaging/letztes-bier.default /etc/default/letztes-bier
+# Optional at build: `make build PB_DOMAIN=host.example.com` (or export PB_DOMAIN) bakes LXC autocert hostname into /etc/default/letztes-bier.
+ARG PB_DOMAIN=
+RUN if [ -n "$PB_DOMAIN" ]; then \
+	printf '%s\n' \
+		'# /etc/default/letztes-bier — set at image build (see Makefile PB_DOMAIN).' \
+		"# Edit on the CT after deploy if needed." \
+		"PB_DOMAIN=$PB_DOMAIN" \
+		> /etc/default/letztes-bier; \
+	fi
+
+RUN PB_VER=0.37.5 \
 	&& curl -fsSL "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VER}/pocketbase_${PB_VER}_linux_amd64.zip" -o /tmp/pb.zip \
+	&& mkdir -p /pb \
 	&& unzip /tmp/pb.zip -d /pb \
 	&& rm /tmp/pb.zip \
 	&& chmod +x /pb/pocketbase
@@ -22,8 +57,14 @@ COPY --from=web /src/build ./pb_public
 COPY pb_migrations ./pb_migrations
 COPY pb_hooks ./pb_hooks
 
+RUN ln -sf /lib/systemd/system/networking.service \
+	/etc/systemd/system/multi-user.target.wants/networking.service \
+	&& ln -sf /etc/systemd/system/letztes-bier.service \
+	/etc/systemd/system/multi-user.target.wants/letztes-bier.service
+
 ENV PB_DATA_DIR=/pb/pb_data
 VOLUME ["/pb/pb_data"]
 EXPOSE 80 443
+STOPSIGNAL SIGRTMIN+3
 
 ENTRYPOINT ["/pb/docker-entrypoint.sh"]

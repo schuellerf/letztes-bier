@@ -1,0 +1,5 @@
+# /etc/default/letztes-bier — public hostname for PocketBase autocert (Let’s Encrypt).
+# Set this before relying on HTTPS, e.g. PB_DOMAIN=beer.example.com
+#
+# DNS must point at this CT; firewall must allow TCP 80 and 443.
+PB_DOMAIN=
