@@ -484,7 +484,7 @@
 					id="custom"
 					bind:value={pickLabel}
 					class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-2 py-1.5 text-base"
-					placeholder="e.g. Napkins"
+					placeholder="z.B. Servietten oder Vera"
 				/>
 			</div>
 			<button
@@ -544,7 +544,7 @@
 				disabled={loading}
 				class="w-full rounded-xl bg-amber-500 py-2.5 text-base font-bold text-black shadow-md shadow-amber-900/30 disabled:opacity-50"
 			>
-				Send request
+				Abschicken
 			</button>
 		</form>
 	</section>
@@ -628,7 +628,7 @@
 								</span>
 							</div>
 							{#if r.storage_name}
-								<p class="mb-1 text-sm text-zinc-500">Hub: {r.storage_name}</p>
+								<p class="mb-1 text-sm text-zinc-500">{r.storage_name}</p>
 							{/if}
 							{#if r.accepted_by_nickname?.trim()}
 								<p class="mb-1 text-sm text-sky-300">

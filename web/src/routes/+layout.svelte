@@ -112,7 +112,7 @@
 	<main class="mx-auto w-full max-w-3xl flex-1 px-4 py-6">
 		{@render children()}
 	</main>
-	<footer class="border-t border-zinc-800 bg-zinc-900/60 px-4 py-3 text-center text-sm text-zinc-500">
+	<!--<footer class="border-t border-zinc-800 bg-zinc-900/60 px-4 py-3 text-center text-sm text-zinc-500">
 		Server: <code class="text-zinc-400">{getPbUrl() || '(same origin)'}</code>
-	</footer>
+	</footer>-->
 </div>
