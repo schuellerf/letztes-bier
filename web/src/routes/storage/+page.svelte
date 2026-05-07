@@ -329,7 +329,7 @@
 	{/if}
 
 	<section class="mb-10">
-		<h2 class="mb-3 text-2xl font-semibold text-amber-200">Pending</h2>
+		<h2 class="mb-3 text-2xl font-semibold text-amber-200">Neu</h2>
 		<ul class="space-y-4">
 			{#each pending as r}
 				<li class="rounded-2xl border-2 border-amber-700/60 bg-zinc-900/50 p-4">
@@ -363,13 +363,13 @@
 					<p class="text-xl text-zinc-200">{summarizeItems(r.items, 300)}</p>
 				</li>
 			{:else}
-				<li class="text-zinc-500">No pending requests.</li>
+				<li class="text-zinc-500">Keine neuen Anfragen.</li>
 			{/each}
 		</ul>
 	</section>
 
 	<section>
-		<h2 class="mb-3 text-2xl font-semibold text-sky-200">Accepted</h2>
+		<h2 class="mb-3 text-2xl font-semibold text-sky-200">In Bearbeitung</h2>
 		<ul class="space-y-4">
 			{#each accepted as r}
 				<li class="rounded-2xl border-2 border-sky-800/60 bg-zinc-900/50 p-4">
@@ -403,7 +403,7 @@
 					<p class="text-xl text-zinc-200">{summarizeItems(r.items, 300)}</p>
 				</li>
 			{:else}
-				<li class="text-zinc-500">Nothing in progress.</li>
+				<li class="text-zinc-500">Nichts in Bearbeitung.</li>
 			{/each}
 		</ul>
 	</section>
@@ -416,7 +416,7 @@
 			<summary
 				class="cursor-pointer select-none list-none px-4 py-3 text-xl font-medium text-zinc-300"
 			>
-				{doneOpen ? '⏷' : '⏵'} Done items ({doneRequestsSorted.length})
+				{doneOpen ? '⏷' : '⏵'}&nbsp;Erledigt ({doneRequestsSorted.length})
 			</summary>
 			<ul class="space-y-4 border-t border-zinc-700 px-4 pb-4 pt-4">
 				{#each doneRequestsSorted as r}
@@ -461,27 +461,26 @@
 		<summary
 			class="cursor-pointer select-none list-none px-6 py-3 text-xl font-semibold text-zinc-200"
 		>
-			{settingsOpen ? '⏷' : '⏵'} Settings
+			{settingsOpen ? '⏷' : '⏵'} Einstellungen
 		</summary>
 		<div class="space-y-4 border-t border-zinc-700 px-6 pb-6 pt-4">
 			<p class="text-sm text-zinc-500">
-				One label per line. These lines appear as quick-add buttons on bar devices (together with other hubs).
-				Hub name and hub order are managed in the admin dashboard.
+				Ein Gegenstand pro Zeile
 			</p>
 			{#if settingsErr}
 				<p class="text-sm text-red-300">{settingsErr}</p>
 			{/if}
 			{#if settingsOk}
-				<p class="text-sm text-emerald-400">Saved.</p>
+				<p class="text-sm text-emerald-400">Gespeichert.</p>
 			{/if}
 			<form class="space-y-3" onsubmit={saveSettings}>
 				<label class="block">
-					<span class="mb-1 block text-sm text-zinc-400">Quick item labels</span>
+					<span class="mb-1 block text-sm text-zinc-400">Schnellbestellungen</span>
 					<textarea
 						bind:value={settingsLines}
 						rows="12"
 						class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-200"
-						placeholder="One label per line"
+						placeholder="Ein Gegenstand pro Zeile"
 					></textarea>
 				</label>
 				<button
@@ -489,7 +488,7 @@
 					disabled={settingsBusy}
 					class="rounded-lg bg-zinc-700 px-4 py-2 font-medium text-zinc-100 hover:bg-zinc-600 disabled:opacity-50"
 				>
-					{settingsBusy ? 'Saving…' : 'Save quick items'}
+					{settingsBusy ? 'speichert …' : 'Speichern'}
 				</button>
 			</form>
 		</div>

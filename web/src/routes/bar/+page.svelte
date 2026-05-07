@@ -550,7 +550,7 @@
 	</section>
 
 	<section>
-		<h2 class="mb-3 text-2xl font-semibold text-zinc-200">Your recent requests</h2>
+		<h2 class="mb-3 text-2xl font-semibold text-zinc-200">Deine Anfragen</h2>
 		<ul class="space-y-3">
 			{#each openRequestsSorted as r}
 				<li class="rounded-xl border border-zinc-700 bg-zinc-900/30 p-4">
@@ -577,7 +577,7 @@
 										: 'border-sky-500 bg-sky-600 text-white hover:bg-sky-500'}"
 									onclick={() => triggerNotify(r)}
 								>
-									Notify again
+									Erinnern
 								</button>
 							{/if}
 						</div>
@@ -598,6 +598,8 @@
 					{/if}
 					<p class="text-lg text-zinc-200">{summarizeItems(r.items, 200)}</p>
 				</li>
+			{:else}
+				<li class="text-zinc-500">Im Moment keine Anfragen.</li>
 			{/each}
 			{#if openRequestsSorted.length === 0 && doneRequestsSorted.length === 0}
 				<li class="text-zinc-500">No requests yet.</li>
@@ -609,7 +611,7 @@
 				<summary
 					class="cursor-pointer select-none list-none px-4 py-3 text-lg font-medium text-zinc-300"
 				>
-					{doneOpen ? '⏷' : '⏵'} done items ({doneRequestsSorted.length})
+					{doneOpen ? '⏷' : '⏵'}&nbsp;Erledigt ({doneRequestsSorted.length})
 				</summary>
 				<ul class="space-y-3 border-t border-zinc-700 px-4 pb-4 pt-3">
 					{#each doneRequestsSorted as r}
