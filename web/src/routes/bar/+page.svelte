@@ -413,7 +413,7 @@
 				<summary
 					class="cursor-pointer select-none list-none px-4 py-3 text-lg font-medium text-zinc-300"
 				>
-					{doneOpen ? 'v' : '>'} done items ({doneRequests.length})
+					{doneOpen ? '⏷' : '⏵'} done items ({doneRequests.length})
 				</summary>
 				<ul class="space-y-3 border-t border-zinc-700 px-4 pb-4 pt-3">
 					{#each doneRequests as r}
