@@ -32,7 +32,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>Stock Request</title>
+	<title>Letztes Bier</title>
 </svelte:head>
 
 <div class="min-h-screen bg-zinc-950 text-zinc-100">
@@ -50,7 +50,7 @@
 	{/if}
 	<header class="border-b border-zinc-800 bg-zinc-900/80 px-4 py-3 backdrop-blur">
 		<nav class="mx-auto flex max-w-3xl flex-wrap items-center gap-4 text-lg">
-			<a class="font-semibold text-amber-400 hover:text-amber-300" href="/">Stock Request</a>
+			<a class="font-semibold text-amber-400 hover:text-amber-300" href="/">Letztes Bier</a>
 			<a class="text-zinc-400 hover:text-zinc-200" href="/join">Join</a>
 			<a class="text-zinc-400 hover:text-zinc-200" href="/bar">Bar</a>
 			<a class="text-zinc-400 hover:text-zinc-200" href="/storage">Storage</a>

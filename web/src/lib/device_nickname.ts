@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
 
-const KEY = 'stockreq_device_nickname';
+const KEY = 'letztesbier_device_nickname';
 
 export function getDeviceNickname(): string {
 	if (!browser) return '';

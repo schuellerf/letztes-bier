@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * Bars & requests schema with auth-backed roles on `users`.
+ * Letztes Bier — bars & requests schema with auth-backed roles on `users`.
  * See docs/RULES.md for public vs LAN-oriented rule notes.
  */
 migrate(

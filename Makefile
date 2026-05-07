@@ -1,6 +1,6 @@
 # Container image + local run (Podman by default; override ENGINE=docker if needed).
 ENGINE ?= podman
-IMAGE ?= stock-request:local
+IMAGE ?= letztes-bier:local
 PORT ?= 8090
 CONTAINERFILE ?= Containerfile
 

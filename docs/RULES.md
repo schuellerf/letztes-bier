@@ -1,6 +1,6 @@
 # PocketBase API rules (public vs LAN)
 
-This app ships **default rules in `pb_migrations`** aimed at a **multi-role authenticated** setup:
+**Letztes Bier** ships **default rules in `pb_migrations`** aimed at a **multi-role authenticated** setup:
 
 | Collection | List / view | Create | Update | Notes |
 |------------|-------------|--------|--------|------|

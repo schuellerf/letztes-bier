@@ -9,7 +9,7 @@
 	import type { StockItem, StockRequestRecord } from '$lib/types';
 	import { connection } from '$lib/connection.svelte';
 
-	const JOIN_BAR_KEY = 'stockreq_join_bar';
+	const JOIN_BAR_KEY = 'letztesbier_join_bar';
 	const PRESETS = [
 		'Vodka',
 		'Gin',

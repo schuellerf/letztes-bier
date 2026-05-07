@@ -1,4 +1,4 @@
-# Stock Request (SvelteKit + PocketBase)
+# Letztes Bier (SvelteKit + PocketBase)
 
 Single-container deployment: PocketBase serves the built SPA from `pb_public`, persists SQLite in `pb_data`, applies `pb_migrations` on start.
 
@@ -8,7 +8,7 @@ Single-container deployment: PocketBase serves the built SPA from `pb_public`, p
 make run
 ```
 
-This creates **`./pb_data`**, builds the image (`stock-request:local`), and runs it with that directory mounted at `/pb/pb_data`.
+This creates **`./pb_data`**, builds the image (`letztes-bier:local`), and runs it with that directory mounted at `/pb/pb_data`.
 
 Use **`make ENGINE=docker run`** if you use Docker instead of Podman (volume **`:Z`** is omitted for Docker).
 
@@ -67,7 +67,7 @@ Examples (adjust variables, state backend, and secrets):
 - [infra/aws/](infra/aws/) — `t3.micro`-style EC2 + cloud-init Docker run.
 - [infra/proxmox/](infra/proxmox/) — placeholder module; add `proxmox_virtual_environment_vm` per your [bpg/proxmox](https://registry.terraform.io/providers/bpg/proxmox/latest/docs) version.
 
-Neither path publishes a container registry by default; build and push `stock-request:latest` (e.g. `podman build -f Containerfile -t stock-request:latest .`), or copy this repo to the VM and build there.
+Neither path publishes a container registry by default; build and push `letztes-bier:latest` (e.g. `podman build -f Containerfile -t letztes-bier:latest .`), or copy this repo to the VM and build there.
 
 ## Project layout
 

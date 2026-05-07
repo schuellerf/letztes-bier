@@ -42,7 +42,7 @@ export function notifyNewPendingRequest(
 		'storage-new',
 		recordId,
 		'create',
-		'New stock request',
+		'Letztes Bier — neue Anfrage',
 		who
 	);
 }
@@ -57,7 +57,7 @@ export function notifyRequestAccepted(
 		'bar-accepted',
 		recordId,
 		'accepted',
-		`Accepted — ${who}`,
+		`Letztes Bier — übernommen (${who})`,
 		itemsPreview
 	);
 }

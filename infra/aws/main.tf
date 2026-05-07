@@ -20,7 +20,7 @@ variable "instance_type" {
 
 variable "docker_image" {
   type        = string
-  description = "Image to run, e.g. ghcr.io/yourorg/stock-request:latest or stock-request:latest after docker load"
+  description = "Image to run, e.g. ghcr.io/yourorg/letztes-bier:latest or letztes-bier:latest after docker load"
 }
 
 variable "admin_cidr_ssh" {
@@ -57,8 +57,8 @@ data "aws_ami" "debian12" {
   }
 }
 
-resource "aws_security_group" "stockreq" {
-  name_prefix = "stockreq-"
+resource "aws_security_group" "letztes_bier" {
+  name_prefix = "letztes-bier-"
   vpc_id      = data.aws_default_vpc.default.id
 
   ingress {
@@ -85,11 +85,11 @@ resource "aws_security_group" "stockreq" {
   }
 }
 
-resource "aws_instance" "stockreq" {
+resource "aws_instance" "letztes_bier" {
   ami                         = data.aws_ami.debian12.id
   instance_type               = var.instance_type
   subnet_id                   = sort(data.aws_subnets.default.ids)[0]
-  vpc_security_group_ids      = [aws_security_group.stockreq.id]
+  vpc_security_group_ids      = [aws_security_group.letztes_bier.id]
   associate_public_ip_address = true
 
   user_data = <<-EOT
@@ -99,14 +99,14 @@ resource "aws_instance" "stockreq" {
       - docker.io
     runcmd:
       - systemctl enable --now docker
-      - docker run -d --name stockreq --restart unless-stopped -p 8090:8090 -v stockreq_pb_data:/pb/pb_data ${var.docker_image}
+      - docker run -d --name letztes-bier --restart unless-stopped -p 8090:8090 -v letztes-bier_pb_data:/pb/pb_data ${var.docker_image}
   EOT
 
   tags = {
-    Name = "stock-request"
+    Name = "letztes-bier"
   }
 }
 
 output "public_ip" {
-  value = aws_instance.stockreq.public_ip
+  value = aws_instance.letztes_bier.public_ip
 }

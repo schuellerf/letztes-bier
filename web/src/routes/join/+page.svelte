@@ -4,7 +4,7 @@
 	import { get } from 'svelte/store';
 	import { page } from '$app/stores';
 
-	const JOIN_BAR_KEY = 'stockreq_join_bar';
+	const JOIN_BAR_KEY = 'letztesbier_join_bar';
 
 	onMount(() => {
 		const u = get(page).url;
@@ -13,7 +13,7 @@
 		if (barId) {
 			sessionStorage.setItem(JOIN_BAR_KEY, barId);
 		} else if (role) {
-			sessionStorage.setItem('stockreq_join_role_hint', role);
+			sessionStorage.setItem('letztesbier_join_role_hint', role);
 		}
 		goto('/bar', { replaceState: true });
 	});
