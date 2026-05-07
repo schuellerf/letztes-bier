@@ -16,13 +16,14 @@ RUN apk add --no-cache ca-certificates curl unzip \
 	&& chmod +x /pb/pocketbase
 
 WORKDIR /pb
+COPY scripts/docker-entrypoint.sh /pb/docker-entrypoint.sh
+RUN chmod +x /pb/docker-entrypoint.sh
 COPY --from=web /src/build ./pb_public
 COPY pb_migrations ./pb_migrations
 COPY pb_hooks ./pb_hooks
 
 ENV PB_DATA_DIR=/pb/pb_data
 VOLUME ["/pb/pb_data"]
-EXPOSE 8090
+EXPOSE 80 443
 
-ENTRYPOINT ["/pb/pocketbase"]
-CMD ["serve", "--http=0.0.0.0:8090", "--dir=/pb/pb_data", "--publicDir=/pb/pb_public", "--migrationsDir=/pb/pb_migrations", "--hooksDir=/pb/pb_hooks"]
+ENTRYPOINT ["/pb/docker-entrypoint.sh"]

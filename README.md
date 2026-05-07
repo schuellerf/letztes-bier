@@ -2,6 +2,8 @@
 
 Single-container deployment: PocketBase serves the built SPA from `pb_public`, persists SQLite in `pb_data`, applies `pb_migrations` on start.
 
+**Production TLS:** the default container entrypoint uses PocketBase **autocert** (Let’s Encrypt on **80** / **443**) via `PB_DOMAIN`. See [docs/PROXMOX.md](docs/PROXMOX.md) for Proxmox, DNS, and firewall. **`make run`** overrides the entrypoint and keeps plain HTTP on **8090** for local dev.
+
 ## Quick start (Podman)
 
 ```bash
@@ -10,11 +12,13 @@ make run
 
 This creates **`./pb_data`**, builds the image (`letztes-bier:local`), and runs it with that directory mounted at `/pb/pb_data`.
 
-Use **`make ENGINE=docker run`** if you use Docker instead of Podman (volume **`:Z`** is omitted for Docker).
+Use **`make ENGINE=docker run`** if you use Docker instead of Podman (volume **`:Z`** is omitted for Docker). Override **`IMAGE_TAG`** if you tag the image differently than **`IMAGE`** (default **`letztes-bier:local`**).
 
-Open `http://localhost:8090/`. Admin UI (for superuser & collection management): `http://localhost:8090/_/`.
+Open `http://localhost:8888/` by default (`PORT=8090` if you prefer **8090** on the host). Admin UI: `http://localhost:8888/_/` (same port).
 
-Other targets: **`make build`**, **`make clean`** (removes `web/build`, `web/.svelte-kit`, and the local image—**not** `pb_data/`).
+Other targets: **`make build`**, **`make clean`** (removes `web/build`, `web/.svelte-kit`, and the local image—**not** `pb_data/`), **`make proxmox-ct`** (gzip rootfs tarball for Proxmox `vztmpl` into `dist/`; see [docs/PROXMOX.md](docs/PROXMOX.md)).
+
+To exercise **autocert** locally, run the image without overriding the entrypoint, set `-e PB_DOMAIN=your.hostname`, and publish **80** and **443** (DNS for that hostname must point at your machine).
 
 First boot: create a **superuser** in the PocketBase logs / prompt (or use `pocketbase superuser` if running the binary locally).
 
@@ -72,7 +76,7 @@ Examples (adjust variables, state backend, and secrets):
 - [infra/aws/](infra/aws/) — `t3.micro`-style EC2 + cloud-init Docker run.
 - [infra/proxmox/](infra/proxmox/) — placeholder module; add `proxmox_virtual_environment_vm` per your [bpg/proxmox](https://registry.terraform.io/providers/bpg/proxmox/latest/docs) version.
 
-Neither path publishes a container registry by default; build and push `letztes-bier:latest` (e.g. `podman build -f Containerfile -t letztes-bier:latest .`), or copy this repo to the VM and build there.
+Neither path publishes a container registry by default; build and push `letztes-bier:latest` (e.g. `podman build -f Containerfile -t letztes-bier:latest .`), or copy this repo to the VM and build there. For a **Proxmox CT template tarball**, use **`make proxmox-ct`** ([docs/PROXMOX.md](docs/PROXMOX.md)).
 
 ## Project layout
 
@@ -81,4 +85,5 @@ Neither path publishes a container registry by default; build and push `letztes-
 | `web/` | SvelteKit 5 + Tailwind, `@sveltejs/adapter-static` |
 | `pb_migrations/` | PocketBase JS migrations (`bars`, `storages`, `users`, `requests`, hooks) |
 | `Containerfile` | Build SPA → `pb_public`, bundle PocketBase binary |
-| `Makefile` | `make build` / `make run` / `make clean` (Podman default) |
+| `Makefile` | `make build` / `make run` / `make clean` / `make proxmox-ct` (Podman default) |
+| `docs/PROXMOX.md` | Proxmox vztmpl import, `PB_DOMAIN`, firewall, persistence |
