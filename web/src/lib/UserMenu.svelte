@@ -23,6 +23,8 @@
 
 	const showMenu = $derived(authValid && MENU_PATHS.has(page.url.pathname));
 
+	const notifyNotEnabled = $derived(notifyStatus !== 'granted');
+
 	function close() {
 		open = false;
 	}
@@ -80,7 +82,7 @@
 				open = !open;
 			}}
 		>
-			Account
+			{#if notifyNotEnabled}⚠️&nbsp;{/if}Account
 		</button>
 		{#if open}
 			<div
@@ -128,7 +130,7 @@
 						{:else if notifyStatus === 'granted'}
 							On
 						{:else}
-							Not enabled
+							Not enabled&nbsp;⚠️
 						{/if}
 					</span>
 				</div>

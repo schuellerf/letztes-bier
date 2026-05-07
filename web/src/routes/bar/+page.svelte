@@ -441,16 +441,11 @@
 	{/if}
 
 	<section class="mb-8 rounded-xl border border-zinc-700 bg-zinc-900/40 p-4">
-		<h2 class="mb-3 text-2xl font-semibold text-zinc-200">Quick add</h2>
 		{#if storagesError}
 			<div class="mb-3 rounded-lg border border-red-800 bg-red-950/30 px-3 py-2 text-sm text-red-200">
 				{storagesError}
 			</div>
 		{/if}
-		<p class="mb-3 text-sm text-zinc-500">
-			Quick picks come from all storage hubs. Custom items go to the hub with the lowest hub order
-			(default).
-		</p>
 		<div class="mb-3 flex flex-wrap gap-2">
 			{#each presetButtons as p (p.cartKey)}
 				{@const inCart = cart.some((line) => line.cartKey === p.cartKey)}

@@ -101,7 +101,7 @@
 			<div class="flex flex-wrap items-center gap-4">
 				<a class="font-semibold text-amber-400 hover:text-amber-300" href="/">Letztes Bier</a>
 				<a class="text-zinc-400 hover:text-zinc-200" href="/bar">Bar</a>
-				<a class="text-zinc-400 hover:text-zinc-200" href="/storage">Storage</a>
+				<a class="text-zinc-400 hover:text-zinc-200" href="/storage">Lager</a>
 				<a class="text-zinc-400 hover:text-zinc-200" href="/admin/stats">Stats</a>
 				<a class="text-zinc-400 hover:text-zinc-200" href="/admin/users">Users</a>
 				<a class="text-zinc-400 hover:text-zinc-200" href="/_/">Admin</a>
