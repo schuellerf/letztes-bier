@@ -18,6 +18,7 @@
 		"@sveltejs/kit": "^2.57.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@tailwindcss/vite": "^4.2.2",
+		"@types/qrcode": "^1.5.6",
 		"svelte": "^5.55.2",
 		"svelte-check": "^4.4.6",
 		"tailwindcss": "^4.2.2",
@@ -26,6 +27,7 @@
 		"vitest": "^3.2.4"
 	},
 	"dependencies": {
-		"pocketbase": "^0.26.8"
+		"pocketbase": "^0.26.8",
+		"qrcode": "^1.5.4"
 	}
 }

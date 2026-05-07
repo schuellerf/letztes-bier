@@ -13,3 +13,11 @@ export function barIdFromRecord(record: RecordModel | undefined | null): string 
 	const b = record.bar as string | undefined;
 	return b && b.length > 0 ? b : null;
 }
+
+/** Dashboard path after auth, by app role on the users record. */
+export function homePathForRole(role: UserRole | null): string {
+	if (role === 'admin') return '/admin/stats';
+	if (role === 'bar') return '/bar';
+	if (role === 'storage') return '/storage';
+	return '/';
+}

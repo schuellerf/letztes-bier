@@ -6,7 +6,7 @@
 	import { ensureNotifyPermission } from '$lib/notifications';
 	import { runLogout } from '$lib/logout_hooks';
 
-	const MENU_PATHS = new Set(['/bar', '/storage', '/admin/stats']);
+	const MENU_PATHS = new Set(['/bar', '/storage', '/admin/stats', '/admin/users']);
 
 	let nickname = $state('');
 	let open = $state(false);
