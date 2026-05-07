@@ -13,7 +13,7 @@
 	import { getDeviceNickname } from '$lib/device_nickname';
 	import { notifyNewPendingRequest } from '$lib/notifications';
 	import { summarizeItems } from '$lib/items';
-	import { formatPbDateTime, elapsedHhMmSsSince, parseRequestTimestamp } from '$lib/dates';
+	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate, parseRequestTimestamp } from '$lib/dates';
 	import { registerRealtimeCleanup } from '$lib/logout_hooks';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockRequestRecord } from '$lib/types';
@@ -31,6 +31,7 @@
 	let record = $state<RecordModel | null>(null);
 	let unsub: null | (() => void) = null;
 	let nowMs = $state(Date.now());
+	let doneOpen = $state(false);
 
 	const role = $derived(roleFromRecord(record));
 
@@ -99,11 +100,13 @@
 
 	async function doneRequest(r: StockRequestRecord) {
 		if (r.status !== 'accepted') return;
+		const nick = getDeviceNickname();
 		busyId = r.id;
 		try {
 			await pb().collection(COLLECTIONS.requests).update(r.id, {
 				status: 'done',
-				completed_at: nowIso()
+				completed_at: nowIso(),
+				done_by_nickname: nick || ''
 			});
 			await refreshList();
 		} catch (e) {
@@ -180,6 +183,14 @@
 
 	const pending = $derived(requests.filter((r) => r.status === 'pending'));
 	const accepted = $derived(requests.filter((r) => r.status === 'accepted'));
+	const doneRequestsSorted = $derived(
+		[...requests.filter((r) => r.status === 'done')].sort((a, b) => {
+			const ta = parsePbDate(a.completed_at)?.getTime() ?? 0;
+			const tb = parsePbDate(b.completed_at)?.getTime() ?? 0;
+			if (tb !== ta) return tb - ta;
+			return b.id.localeCompare(a.id);
+		})
+	);
 </script>
 
 <h1 class="mb-2 text-3xl font-bold text-amber-300">Storage hub</h1>
@@ -284,12 +295,17 @@
 							<p class="text-xl font-medium text-zinc-100">
 								{r.bar_name}{#if r.bar_device_nickname?.trim()}
 									<span class="font-normal text-amber-200/90">
-										({r.bar_device_nickname.trim()})</span
+										&nbsp;({r.bar_device_nickname.trim()})</span
 									>
 								{/if}
 							</p>
-							{#if r.accepted_by_nickname}
-								<p class="text-zinc-400">Accepted by {r.accepted_by_nickname}</p>
+							{#if r.accepted_by_nickname?.trim()}
+								{@const acceptedAt = parsePbDate(r.accepted_at)}
+								<p class="mb-1 text-sm text-sky-300" title={formatPbDateTime(r.accepted_at)}>
+									Accepted by {r.accepted_by_nickname.trim()}{#if acceptedAt}
+										{' '}· {elapsedHhMmSsSince(acceptedAt, nowMs)} ago
+									{/if}
+								</p>
 							{/if}
 						</div>
 						<button
@@ -308,4 +324,50 @@
 			{/each}
 		</ul>
 	</section>
+
+	{#if doneRequestsSorted.length > 0}
+		<details
+			class="mt-4 rounded-2xl border border-zinc-700 bg-zinc-900/20 [&_summary::-webkit-details-marker]:hidden"
+			bind:open={doneOpen}
+		>
+			<summary
+				class="cursor-pointer select-none list-none px-4 py-3 text-xl font-medium text-zinc-300"
+			>
+				{doneOpen ? '⏷' : '⏵'} Done items ({doneRequestsSorted.length})
+			</summary>
+			<ul class="space-y-4 border-t border-zinc-700 px-4 pb-4 pt-4">
+				{#each doneRequestsSorted as r}
+					<li class="rounded-2xl border border-zinc-700 bg-zinc-900/30 p-4">
+						<div class="mb-2 flex flex-wrap items-start justify-between gap-3">
+							<div>
+								<p class="text-xl font-medium text-zinc-100">
+									{r.bar_name}{#if r.bar_device_nickname?.trim()}
+										<span class="font-normal text-amber-200/90">
+											({r.bar_device_nickname.trim()})</span>
+									{/if}
+								</p>
+								{#if r.accepted_by_nickname?.trim()}
+									<p class="mb-1 text-sm text-sky-300">
+										Accepted by {r.accepted_by_nickname.trim()}
+									</p>
+								{/if}
+								{#if r.done_by_nickname?.trim()}
+									<p class="mb-1 text-sm text-emerald-300">
+										Done by {r.done_by_nickname.trim()}
+									</p>
+								{/if}
+							</div>
+							<span
+								class="cursor-default text-sm text-zinc-500"
+								title={formatPbDateTime(r.completed_at)}
+							>
+								Completed {elapsedHhMmSsSince(parsePbDate(r.completed_at), nowMs)} ago
+							</span>
+						</div>
+						<p class="text-xl text-zinc-200">{summarizeItems(r.items, 300)}</p>
+					</li>
+				{/each}
+			</ul>
+		</details>
+	{/if}
 {/if}

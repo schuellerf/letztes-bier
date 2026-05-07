@@ -17,4 +17,5 @@ export type StockRequestRecord = RecordModel & {
 	completed_at?: string;
 	bar_device_nickname?: string;
 	accepted_by_nickname?: string;
+	done_by_nickname?: string;
 };

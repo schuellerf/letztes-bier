@@ -458,8 +458,11 @@
 						</span>
 					</div>
 					{#if r.status === 'accepted' && r.accepted_by_nickname?.trim()}
-						<p class="mb-1 text-sm text-sky-300">
-							Accepted by {r.accepted_by_nickname.trim()}
+						{@const acceptedAt = parsePbDate(r.accepted_at)}
+						<p class="mb-1 text-sm text-sky-300" title={formatPbDateTime(r.accepted_at)}>
+							Accepted by {r.accepted_by_nickname.trim()}{#if acceptedAt}
+								{' '}· {elapsedHhMmSsSince(acceptedAt, nowMs)} ago
+							{/if}
 						</p>
 					{/if}
 					<p class="text-lg text-zinc-200">{summarizeItems(r.items, 200)}</p>
@@ -495,6 +498,9 @@
 								<p class="mb-1 text-sm text-sky-300">
 									Accepted by {r.accepted_by_nickname.trim()}
 								</p>
+							{/if}
+							{#if r.done_by_nickname?.trim()}
+								<p class="mb-1 text-sm text-emerald-300">Done by {r.done_by_nickname.trim()}</p>
 							{/if}
 							<p class="text-lg text-zinc-200">{summarizeItems(r.items, 200)}</p>
 						</li>

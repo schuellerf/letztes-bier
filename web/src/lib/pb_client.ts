@@ -50,9 +50,13 @@ export function nowIso(): string {
 	return new Date().toISOString();
 }
 
-/** Pending or accepted requests (storage hub list). */
+/** Pending, accepted, and done requests (storage hub list including history). */
 export function storageOpenRequestsFilter(): string {
-	return pb().filter('(status = {:p} || status = {:a})', { p: 'pending', a: 'accepted' });
+	return pb().filter('(status = {:p} || status = {:a} || status = {:d})', {
+		p: 'pending',
+		a: 'accepted',
+		d: 'done'
+	});
 }
 
 /** Requests for one bar (bar dashboard list). Use relation id match for PocketBase compatibility. */
