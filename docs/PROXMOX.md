@@ -33,6 +33,42 @@ pct exec <VMID> -- journalctl -u letztes-bier.service -f
 
 With **`PB_DOMAIN`** set, PocketBase uses **Let’s Encrypt** (autocert) on **80** and **443**. See [Going to production](https://pocketbase.io/docs/going-to-production/).
 
+### First superuser when HTTPS looks “wrong”
+
+The log line about creating the first superuser usually points at **`https://<domain>/_/`**. If the certificate is not yet a valid **public** one (Let’s Encrypt still failing, hostname mismatch, or port **80** not reachable for the HTTP-01 check), the browser warns and the installer is painful to use.
+
+**Create the superuser from the CT instead** (no browser):
+
+```bash
+pct exec <VMID> -- systemctl stop letztes-bier.service
+pct exec <VMID> -- /pb/pocketbase --dir=/pb/pb_data superuser upsert 'admin@example.com' 'Choose-a-long-password'
+pct exec <VMID> -- systemctl start letztes-bier.service
+```
+
+Use your real email and a strong password; **`upsert`** is safe to run again later. Stop **`letztes-bier`** first so only one process touches **`pb_data`**.
+
+PocketBase documents this flow under *Going to production* (“create the first superuser explicitly via the **`superuser`** … command”).
+
+### TLS / Let’s Encrypt (why logs stay quiet)
+
+Autocert does not always print a loud “trying Let’s Encrypt” line. Check the same journal; failures often appear as errors when issuance or renewal breaks.
+
+Confirm:
+
+1. **`PB_DOMAIN`** in **`/etc/default/letztes-bier`** matches exactly what you type in the browser (no `http://`, no trailing slash).
+2. **DNS** for that name points at this CT’s **public** address.
+3. **TCP 80** (and **443**) from the **internet** reach the CT (router + Proxmox datacenter/host/CT firewall). HTTP-01 must succeed on **80**.
+4. After fixing issues, restart: **`systemctl restart letztes-bier.service`**, then wait a short time and reload **`https://<PB_DOMAIN>/_/`**.
+
+Optional checks from your laptop:
+
+```bash
+dig +short YOUR_PUBLIC_DOMAIN
+curl -sS -I "http://YOUR_PUBLIC_DOMAIN/" | head -5
+```
+
+You should at least see **PocketBase** answering on **:80** (often a redirect to **https://**).
+
 ## Build a vztmpl tarball
 
 On a Linux host with Podman or Docker:
