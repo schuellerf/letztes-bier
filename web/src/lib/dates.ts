@@ -1,3 +1,5 @@
+import type { StockRequestRecord } from './types';
+
 /** PocketBase / SQLite may emit fractional seconds beyond 3 digits; many engines only parse ms. */
 function truncateIsoFractionalSeconds(s: string): string {
 	return s.replace(/(\.\d{3})\d+(?=Z|[+-]\d|$)/i, '$1');
@@ -59,6 +61,11 @@ export function parsePbDate(value: string | number | Date | undefined | null): D
 export function formatPbDateTime(value: string | number | Date | undefined | null): string {
 	const d = parsePbDate(value);
 	return d ? d.toLocaleString() : '—';
+}
+
+/** Prefer system `created`, then `updated` if the API omitted or stripped `created`. */
+export function parseRequestTimestamp(r: StockRequestRecord): Date | null {
+	return parsePbDate(r.created) ?? parsePbDate(r.updated);
 }
 
 /** Elapsed since `from` as `HH:MM:SS` (hours unbounded; hours padded to at least 2 digits). */

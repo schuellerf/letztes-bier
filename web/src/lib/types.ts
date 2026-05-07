@@ -7,6 +7,8 @@ export type RequestStatus = 'pending' | 'accepted' | 'done';
 export type StockItem = { label: string; qty: number };
 
 export type StockRequestRecord = RecordModel & {
+	created?: string;
+	updated?: string;
 	bar: string;
 	bar_name: string;
 	items: StockItem[];

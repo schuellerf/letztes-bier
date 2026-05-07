@@ -7,7 +7,7 @@
 	import { getDeviceNickname } from '$lib/device_nickname';
 	import { notifyNewPendingRequest } from '$lib/notifications';
 	import { summarizeItems } from '$lib/items';
-	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate } from '$lib/dates';
+	import { formatPbDateTime, elapsedHhMmSsSince, parseRequestTimestamp } from '$lib/dates';
 	import { registerRealtimeCleanup } from '$lib/logout_hooks';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockRequestRecord } from '$lib/types';
@@ -44,20 +44,7 @@
 					// Client reorders by `created`; server may reject sort=created.
 					sort: 'id',
 					filter: storageOpenRequestsFilter(),
-					perPage: 500,
-					fields: [
-						'id',
-						'created',
-						'updated',
-						'bar',
-						'bar_name',
-						'items',
-						'status',
-						'accepted_at',
-						'completed_at',
-						'bar_device_nickname',
-						'accepted_by_nickname'
-					].join(',')
+					perPage: 500
 				});
 			requests = sortRequestsForStorage(list);
 			connection.reconnecting = false;
@@ -250,14 +237,16 @@
 						<div>
 							<p
 								class="text-xs uppercase tracking-wide text-zinc-500"
-								title={formatPbDateTime(r.created)}
+								title={formatPbDateTime(r.created) !== '—'
+									? formatPbDateTime(r.created)
+									: formatPbDateTime(r.updated)}
 							>
-								Requested {elapsedHhMmSsSince(parsePbDate(r.created), nowMs)} ago
+								Requested {elapsedHhMmSsSince(parseRequestTimestamp(r), nowMs)} ago
 							</p>
 							<p class="text-2xl font-semibold text-zinc-100">
 								{r.bar_name}{#if r.bar_device_nickname?.trim()}
 									<span class="font-normal text-amber-200/90">
-										({r.bar_device_nickname.trim()})</span
+										&nbsp;({r.bar_device_nickname.trim()})</span
 									>
 								{/if}
 							</p>

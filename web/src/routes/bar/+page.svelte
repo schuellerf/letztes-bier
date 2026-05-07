@@ -7,7 +7,7 @@
 	import { getDeviceNickname } from '$lib/device_nickname';
 	import { notifyRequestAccepted, notifyPendingReminder } from '$lib/notifications';
 	import { normalizeItems, summarizeItems } from '$lib/items';
-	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate } from '$lib/dates';
+	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate, parseRequestTimestamp } from '$lib/dates';
 	import { registerRealtimeCleanup } from '$lib/logout_hooks';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockItem, StockRequestRecord } from '$lib/types';
@@ -39,6 +39,7 @@
 	let pickLabel = $state('');
 	let pickQty = $state(1);
 	let joinMismatch = $state(false);
+	let notifyFadeId = $state<string | null>(null);
 
 	let authValid = $state(false);
 	let record = $state<RecordModel | null>(null);
@@ -49,6 +50,14 @@
 	const barDisplayName = $derived(barExpand?.name ?? 'Your bar');
 	const openRequests = $derived(requests.filter((r) => r.status !== 'done'));
 	const doneRequests = $derived(requests.filter((r) => r.status === 'done'));
+	const doneRequestsSorted = $derived(
+		[...doneRequests].sort((a, b) => {
+			const ta = parseRequestTimestamp(a)?.getTime() ?? 0;
+			const tb = parseRequestTimestamp(b)?.getTime() ?? 0;
+			if (tb !== ta) return tb - ta;
+			return b.id.localeCompare(a.id);
+		})
+	);
 
 	function syncAuth() {
 		authValid = pb().authStore.isValid;
@@ -111,8 +120,25 @@
 		cart = Array.from(map.entries()).map(([label, qty]) => ({ label, qty }));
 	}
 
-	function addPreset(label: string) {
-		mergeIntoCart([{ label, qty: pickQty }]);
+	function togglePreset(label: string) {
+		const i = cart.findIndex((l) => l.label === label);
+		if (i >= 0) {
+			cart = cart.filter((_, j) => j !== i);
+		} else {
+			mergeIntoCart([{ label, qty: pickQty }]);
+		}
+	}
+
+	function removeCartLine(label: string) {
+		cart = cart.filter((l) => l.label !== label);
+	}
+
+	function triggerNotify(r: StockRequestRecord) {
+		notifyPendingReminder(r.id, r.bar_name, r.bar_device_nickname, r.items);
+		notifyFadeId = r.id;
+		setTimeout(() => {
+			if (notifyFadeId === r.id) notifyFadeId = null;
+		}, 400);
 	}
 
 	function addCustom() {
@@ -304,7 +330,7 @@
 					class="rounded-xl border px-4 py-4 text-xl {inCart
 						? 'border-sky-500 bg-sky-800 text-sky-100 shadow-md shadow-sky-950/50'
 						: 'border-zinc-600 bg-zinc-800 hover:bg-zinc-700'}"
-					onclick={() => addPreset(p)}
+					onclick={() => togglePreset(p)}
 				>
 					{p}
 				</button>
@@ -341,10 +367,40 @@
 		</div>
 		{#if cart.length > 0}
 			<ul class="mt-4 space-y-2 border-t border-zinc-700 pt-4 text-lg">
-				{#each cart as line}
-					<li class="flex justify-between gap-2 text-zinc-200">
-						<span>{line.label}</span>
-						<span class="text-amber-300">{line.qty}&times;</span>
+				{#each cart as line (line.label)}
+					<li class="flex items-center gap-2 text-zinc-200">
+						<button
+							type="button"
+							class="shrink-0 rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-red-300"
+							aria-label="Remove {line.label}"
+							onclick={() => removeCartLine(line.label)}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="size-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+								aria-hidden="true"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								/>
+							</svg>
+						</button>
+						<span class="min-w-0 flex-1">{line.label}</span>
+						<span class="flex shrink-0 items-center gap-2 tabular-nums text-amber-300">
+							{#if loading}
+								<span
+									class="size-4 shrink-0 animate-spin rounded-full border-2 border-amber-400 border-t-transparent"
+									aria-hidden="true"
+								></span>
+							{/if}
+							{line.qty}&times;
+						</span>
 					</li>
 				{/each}
 			</ul>
@@ -380,9 +436,10 @@
 							{#if r.status === 'pending'}
 								<button
 									type="button"
-									class="rounded-lg border border-zinc-500 px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-800"
-									onclick={() =>
-										notifyPendingReminder(r.id, r.bar_name, r.bar_device_nickname, r.items)}
+									class="rounded-lg border px-3 py-1 text-sm transition-all duration-300 ease-out {notifyFadeId === r.id
+										? 'border-zinc-500 bg-zinc-700 text-zinc-200'
+										: 'border-sky-500 bg-sky-600 text-white hover:bg-sky-500'}"
+									onclick={() => triggerNotify(r)}
 								>
 									Notify again
 								</button>
@@ -390,9 +447,11 @@
 						</div>
 						<span
 							class="cursor-default text-sm text-zinc-500"
-							title={formatPbDateTime(r.created)}
+							title={formatPbDateTime(r.created) !== '—'
+								? formatPbDateTime(r.created)
+								: formatPbDateTime(r.updated)}
 						>
-							Requested {elapsedHhMmSsSince(parsePbDate(r.created), nowMs)} ago
+							Requested {elapsedHhMmSsSince(parseRequestTimestamp(r), nowMs)} ago
 						</span>
 					</div>
 					{#if r.status === 'accepted' && r.accepted_by_nickname?.trim()}
@@ -403,20 +462,20 @@
 					<p class="text-lg text-zinc-200">{summarizeItems(r.items, 200)}</p>
 				</li>
 			{/each}
-			{#if openRequests.length === 0 && doneRequests.length === 0}
+			{#if openRequests.length === 0 && doneRequestsSorted.length === 0}
 				<li class="text-zinc-500">No requests yet.</li>
 			{/if}
 		</ul>
 
-		{#if doneRequests.length > 0}
+		{#if doneRequestsSorted.length > 0}
 			<details class="mt-4 rounded-xl border border-zinc-700 bg-zinc-900/20 [&_summary::-webkit-details-marker]:hidden" bind:open={doneOpen}>
 				<summary
 					class="cursor-pointer select-none list-none px-4 py-3 text-lg font-medium text-zinc-300"
 				>
-					{doneOpen ? '⏷' : '⏵'} done items ({doneRequests.length})
+					{doneOpen ? 'v' : '>'} done items ({doneRequestsSorted.length})
 				</summary>
 				<ul class="space-y-3 border-t border-zinc-700 px-4 pb-4 pt-3">
-					{#each doneRequests as r}
+					{#each doneRequestsSorted as r}
 						<li class="rounded-xl border border-zinc-700 bg-zinc-900/30 p-4">
 							<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
 								<span class="rounded-full bg-zinc-700 px-3 py-1 text-sm font-medium text-zinc-200">
