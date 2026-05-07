@@ -355,7 +355,9 @@
 <h1 class="mb-2 text-3xl font-bold text-amber-300">Bar</h1>
 
 {#if joinMismatch}
-	<div class="mb-4 rounded-lg border border-amber-700 bg-amber-950/50 p-4 text-amber-200">
+	<div
+		class="mb-4 max-w-md rounded-lg border border-amber-700 bg-amber-950/50 p-4 text-amber-200"
+	>
 		Your sign-in bar does not match this device&rsquo;s join link. Use the link your admin sent, or ask
 		for an account update.
 	</div>
@@ -365,13 +367,13 @@
 	{#if authValid && role !== 'bar'}
 		<WrongRoleHint expected="bar" current={role} />
 	{/if}
-	<form class="space-y-4 rounded-xl border border-zinc-700 bg-zinc-900/40 p-6" onsubmit={login}>
+	<form class="max-w-md space-y-4 rounded-xl border border-zinc-700 bg-zinc-900/40 p-6" onsubmit={login}>
 		<p class="text-zinc-400">Sign in with your <strong class="text-zinc-200">bar</strong> account.</p>
 		<div>
 			<label class="mb-1 block text-sm text-zinc-400" for="email">Email</label>
 			<input
 				id="email"
-				class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-4 py-4 text-xl"
+				class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-4 py-3 text-xl"
 				autocomplete="username"
 				bind:value={email}
 			/>
@@ -381,7 +383,7 @@
 			<input
 				id="pw"
 				type="password"
-				class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-4 py-4 text-xl"
+				class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-4 py-3 text-xl"
 				autocomplete="current-password"
 				bind:value={password}
 			/>
@@ -392,7 +394,7 @@
 		<button
 			type="submit"
 			disabled={loading}
-			class="w-full rounded-xl bg-amber-500 py-5 text-2xl font-bold text-black disabled:opacity-50"
+			class="w-full rounded-xl bg-amber-500 py-4 text-xl font-bold text-black disabled:opacity-50"
 		>
 			{loading ? '…' : 'Sign in'}
 		</button>
