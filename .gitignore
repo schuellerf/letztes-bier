@@ -1,0 +1,28 @@
+# PocketBase bind-mount
+pb_data/
+
+# SvelteKit / Vite (web app)
+web/.svelte-kit/
+web/build/
+web/dist/
+
+web/node_modules/
+
+# Env / secrets (keep example tracked)
+web/.env
+web/.env.*
+!web/.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE (uncomment .vscode if you never commit workspace settings)
+.idea/
