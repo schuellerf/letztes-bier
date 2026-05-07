@@ -9,15 +9,17 @@
 	} from '$lib/pb_client';
 	import { formatPbClientError, logPbError, pbErrorSuggestsOffline } from '$lib/pb_errors';
 	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
-	import { roleFromRecord } from '$lib/auth';
+	import { roleFromRecord, storageIdFromRecord } from '$lib/auth';
 	import { getDeviceNickname } from '$lib/device_nickname';
 	import { notifyNewPendingRequest } from '$lib/notifications';
-	import { summarizeItems } from '$lib/items';
+	import { parseQuickItems, summarizeItems } from '$lib/items';
 	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate, parseRequestTimestamp } from '$lib/dates';
 	import { registerRealtimeCleanup } from '$lib/logout_hooks';
 	import type { RecordModel } from 'pocketbase';
-	import type { StockRequestRecord } from '$lib/types';
+	import type { StockRequestRecord, StorageHubRecord } from '$lib/types';
 	import { connection } from '$lib/connection.svelte';
+
+	const JOIN_STORAGE_KEY = 'letztesbier_join_storage';
 
 	let email = $state('');
 	let password = $state('');
@@ -32,8 +34,16 @@
 	let unsub: null | (() => void) = null;
 	let nowMs = $state(Date.now());
 	let doneOpen = $state(false);
+	let joinMismatch = $state(false);
+
+	let settingsLines = $state('');
+	let settingsBusy = $state(false);
+	let settingsErr = $state('');
+	let settingsOk = $state(false);
 
 	const role = $derived(roleFromRecord(record));
+	const hubExpand = $derived(record?.expand?.storage as { name?: string } | undefined);
+	const hubDisplayName = $derived(hubExpand?.name ?? 'Your hub');
 
 	function syncAuth() {
 		authValid = pb().authStore.isValid;
@@ -42,15 +52,20 @@
 
 	async function refreshList() {
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'storage') return;
+		const sid = storageIdFromRecord(pb().authStore.record);
+		if (!sid) {
+			listError = 'No storage hub assigned to your account. Ask an admin to set your user’s storage.';
+			requests = [];
+			return;
+		}
 		listError = '';
 		try {
 			const list = await pb()
 				.collection(COLLECTIONS.requests)
 				.getFullList<StockRequestRecord>({
 					requestKey: null,
-					// Client reorders by `requested_at`; server may reject sort on that field.
 					sort: 'id',
-					filter: storageOpenRequestsFilter(),
+					filter: storageOpenRequestsFilter(sid),
 					perPage: 500
 				});
 			requests = sortRequestsForStorage(list);
@@ -62,13 +77,63 @@
 		}
 	}
 
+	async function loadSettingsDraft() {
+		settingsErr = '';
+		const sid = storageIdFromRecord(pb().authStore.record);
+		if (!sid) {
+			settingsLines = '';
+			return;
+		}
+		try {
+			const row = await pb().collection(COLLECTIONS.storages).getOne<StorageHubRecord>(sid);
+			settingsLines = parseQuickItems(row.quick_items).join('\n');
+		} catch (e) {
+			logPbError('storage.loadSettings', e);
+			settingsErr = formatPbClientError(e);
+		}
+	}
+
+	async function saveSettings(e: Event) {
+		e.preventDefault();
+		settingsErr = '';
+		settingsOk = false;
+		const sid = storageIdFromRecord(pb().authStore.record);
+		if (!sid) {
+			settingsErr = 'No hub assigned.';
+			return;
+		}
+		const lines = settingsLines
+			.split('\n')
+			.map((s) => s.trim())
+			.filter((s) => s.length > 0);
+		settingsBusy = true;
+		try {
+			await pb().collection(COLLECTIONS.storages).update(sid, { quick_items: lines });
+			settingsOk = true;
+			setTimeout(() => {
+				settingsOk = false;
+			}, 2500);
+		} catch (e) {
+			logPbError('storage.saveSettings', e);
+			settingsErr = formatPbClientError(e);
+		} finally {
+			settingsBusy = false;
+		}
+	}
+
 	async function login(e: Event) {
 		e.preventDefault();
 		err = '';
 		loading = true;
 		try {
-			await pb().collection(COLLECTIONS.users).authWithPassword(email.trim(), password);
+			await pb()
+				.collection(COLLECTIONS.users)
+				.authWithPassword(email.trim(), password, { expand: 'storage' });
 			syncAuth();
+			const sid = storageIdFromRecord(pb().authStore.record);
+			const expect = sessionStorage.getItem(JOIN_STORAGE_KEY);
+			joinMismatch = Boolean(expect && sid && expect !== sid);
+			await loadSettingsDraft();
 			await bindRealtime();
 			await refreshList();
 		} catch (e) {
@@ -123,15 +188,16 @@
 			unsub = null;
 		}
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'storage') return;
+		const mySid = storageIdFromRecord(pb().authStore.record);
+		if (!mySid) return;
 		unsub = await pb()
 			.collection(COLLECTIONS.requests)
 			.subscribe<StockRequestRecord>('*', (ev) => {
+				const r = ev.record;
+				if (r.storage !== mySid) return;
 				void refreshList();
-				if (ev.action === 'create') {
-					const r = ev.record;
-					if (r.status === 'pending') {
-						notifyNewPendingRequest(r.id, r.bar_name, r.bar_device_nickname, r.items);
-					}
+				if (ev.action === 'create' && r.status === 'pending') {
+					notifyNewPendingRequest(r.id, r.bar_name, r.bar_device_nickname, r.items);
 				}
 			});
 	}
@@ -158,15 +224,20 @@
 				}
 				requests = [];
 				listError = '';
+				settingsLines = '';
 			}
 		}, true);
 
 		void pb()
 			.collection(COLLECTIONS.users)
-			.authRefresh()
+			.authRefresh({ expand: 'storage' })
 			.then(async () => {
 				syncAuth();
+				const sid = storageIdFromRecord(pb().authStore.record);
+				const expect = sessionStorage.getItem(JOIN_STORAGE_KEY);
+				joinMismatch = Boolean(expect && sid && expect !== sid);
 				if (pb().authStore.isValid && roleFromRecord(pb().authStore.record) === 'storage') {
+					await loadSettingsDraft();
 					await refreshList();
 					await bindRealtime();
 				}
@@ -194,6 +265,13 @@
 </script>
 
 <h1 class="mb-2 text-3xl font-bold text-amber-300">Storage hub</h1>
+
+{#if joinMismatch}
+	<div class="mb-4 rounded-lg border border-amber-700 bg-amber-950/50 p-4 text-amber-200">
+		Your account is not linked to this device&rsquo;s storage join link. Use the link your admin sent, or
+		ask for an account update.
+	</div>
+{/if}
 
 {#if !authValid || role !== 'storage'}
 	{#if authValid && role !== 'storage'}
@@ -232,6 +310,8 @@
 		</button>
 	</form>
 {:else}
+	<p class="mb-4 text-xl text-zinc-300">{hubDisplayName}</p>
+
 	{#if listError}
 		<div
 			class="mb-4 rounded-lg border border-red-800 bg-red-950/40 px-4 py-3 text-red-200"
@@ -370,4 +450,36 @@
 			</ul>
 		</details>
 	{/if}
+
+	<section class="mt-12 max-w-xl rounded-xl border border-zinc-700 bg-zinc-900/30 p-6">
+		<h2 class="mb-2 text-xl font-semibold text-zinc-200">Settings</h2>
+		<p class="mb-4 text-sm text-zinc-500">
+			One label per line. These lines appear as quick-add buttons on bar devices (together with other hubs).
+			Hub name and sort order are managed in the admin dashboard.
+		</p>
+		{#if settingsErr}
+			<p class="mb-2 text-sm text-red-300">{settingsErr}</p>
+		{/if}
+		{#if settingsOk}
+			<p class="mb-2 text-sm text-emerald-400">Saved.</p>
+		{/if}
+		<form class="space-y-3" onsubmit={saveSettings}>
+			<label class="block">
+				<span class="mb-1 block text-sm text-zinc-400">Quick item labels</span>
+				<textarea
+					bind:value={settingsLines}
+					rows="12"
+					class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-200"
+					placeholder="One label per line"
+				></textarea>
+			</label>
+			<button
+				type="submit"
+				disabled={settingsBusy}
+				class="rounded-lg bg-zinc-700 px-4 py-2 font-medium text-zinc-100 hover:bg-zinc-600 disabled:opacity-50"
+			>
+				{settingsBusy ? 'Saving…' : 'Save quick items'}
+			</button>
+		</form>
+	</section>
 {/if}

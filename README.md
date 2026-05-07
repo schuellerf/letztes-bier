@@ -22,18 +22,21 @@ First boot: create a **superuser** in the PocketBase logs / prompt (or use `pock
 
 In the Admin UI, create `users` records with:
 
-| Email   | Role    | Bar relation                         |
-|---------|---------|--------------------------------------|
-| admin   | `admin` | (empty)                              |
-| storage | `storage` | (empty)                            |
-| bar staff | `bar` | **must** point at a `bars` record |
+| Email   | Role    | Bar relation                         | Storage relation |
+|---------|---------|--------------------------------------|------------------|
+| admin   | `admin` | (empty)                              | (empty)          |
+| storage | `storage` | (empty)                            | **must** point at a `storages` record |
+| bar staff | `bar` | **must** point at a `bars` record | (empty)          |
 
 Create **`bars`** records first (e.g. “Main Bar”, “VIP”), then bar accounts with `role = bar` and `bar` set to that record.
+
+Create **`storages`** records for each hub (e.g. “Main”, “Annex”). Set **`sort`** so the **lowest** number is the default hub (custom items on the bar go there). Seed migration creates **Main** at `sort = 0`. Each **`storage`** user must have **`storage`** set to their hub’s record.
 
 ### Join links
 
 - Bar devices: `https://your-host/join?bar=<bars_record_id>` (opaque id from Admin).
-- Storage: share `/storage`; sign in with a `storage` user.
+- Storage devices: `https://your-host/join?storage=<storages_record_id>` — same idea as bar join (checks account matches link after sign-in).
+- You can still open `/storage` directly and sign in; join links reduce wrong-hub logins when you run multiple storage hubs.
 
 ## Local development
 
@@ -74,6 +77,6 @@ Neither path publishes a container registry by default; build and push `letztes-
 | Path | Purpose |
 |------|---------|
 | `web/` | SvelteKit 5 + Tailwind, `@sveltejs/adapter-static` |
-| `pb_migrations/` | PocketBase JS migrations (`bars`, `users.role`, `users.bar`, `requests`) |
+| `pb_migrations/` | PocketBase JS migrations (`bars`, `storages`, `users`, `requests`, hooks) |
 | `Containerfile` | Build SPA → `pb_public`, bundle PocketBase binary |
 | `Makefile` | `make build` / `make run` / `make clean` (Podman default) |

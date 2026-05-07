@@ -5,7 +5,8 @@
 | Collection | List / view | Create | Update | Notes |
 |------------|-------------|--------|--------|------|
 | `bars` | `admin`, `storage`, `bar` | `admin` | `admin` | Create bars and staff accounts in the Admin UI (or API as admin). |
-| `requests` | Storage sees all; bar sees **only** `bar = @request.auth.bar` | Bar only; `status` must be `pending`; `bar` must match user | `storage` or `admin` | Bar users cannot patch after create (Fulfillment uses Accept / Done). |
+| `storages` | `admin`, `storage`, `bar` | `admin` | `admin`, or **`storage`** only for the row `id = @request.auth.storage` | Hubs have `quick_items` (JSON). Bar users list all hubs to build the combined quick-add palette. `name` / `sort` are enforced server-side for non-admins via `pb_hooks`. |
+| `requests` | **`admin`**: all; **`storage`**: `storage = @request.auth.storage`; **`bar`**: `bar = @request.auth.bar`** | Bar only; `status = pending`; `bar` and **`storage`** + `storage_name` set | `storage` or `admin` | Bar users cannot patch after create (fulfillment uses Accept / Done). Each request targets one hub (`storage`). |
 
 ## Public deployment
 

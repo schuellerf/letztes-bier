@@ -14,6 +14,12 @@ export function barIdFromRecord(record: RecordModel | undefined | null): string 
 	return b && b.length > 0 ? b : null;
 }
 
+export function storageIdFromRecord(record: RecordModel | undefined | null): string | null {
+	if (!record) return null;
+	const s = record.storage as string | undefined;
+	return s && s.length > 0 ? s : null;
+}
+
 /** Dashboard path after auth, by app role on the users record. */
 export function homePathForRole(role: UserRole | null): string {
 	if (role === 'admin') return '/admin/stats';

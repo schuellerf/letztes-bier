@@ -58,7 +58,7 @@
 					requestKey: null,
 					sort: 'email',
 					perPage: 500,
-					expand: 'bar'
+					expand: 'bar,storage'
 				});
 			staff = list;
 			selected = null;
@@ -86,6 +86,14 @@
 		const ex = u.expand?.bar as { name?: string } | undefined;
 		if (ex?.name) return ex.name;
 		const id = typeof u.bar === 'string' ? u.bar : undefined;
+		if (id) return id.slice(0, 8) + '…';
+		return '—';
+	}
+
+	function storageDisplay(u: RecordModel): string {
+		const ex = u.expand?.storage as { name?: string } | undefined;
+		if (ex?.name) return ex.name;
+		const id = typeof u.storage === 'string' ? u.storage : undefined;
 		if (id) return id.slice(0, 8) + '…';
 		return '—';
 	}
@@ -214,7 +222,8 @@
 						>
 							<span class="font-medium text-zinc-100">{u.email}</span>
 							<span class="ml-2 text-sm text-zinc-500">{(u.role as string) ?? '—'}</span>
-							<div class="text-sm text-zinc-400">{barDisplay(u)}</div>
+							<div class="text-sm text-zinc-400">Bar: {barDisplay(u)}</div>
+							<div class="text-sm text-zinc-400">Hub: {storageDisplay(u)}</div>
 						</button>
 					</li>
 				{:else}

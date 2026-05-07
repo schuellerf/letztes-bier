@@ -11,8 +11,9 @@
 	nutze die großzügige Bar-Oberfläche. Das Lager arbeitet mit dem Storage-Dashboard.
 </p>
 <ul class="list-inside list-disc space-y-2 text-zinc-400">
-	<li><a class="text-amber-400 hover:underline" href="/join">Join / Deep Link</a></li>
 	<li><a class="text-amber-400 hover:underline" href="/bar">Bar</a></li>
 	<li><a class="text-amber-400 hover:underline" href="/storage">Lager (Storage)</a></li>
 	<li><a class="text-amber-400 hover:underline" href="/admin/stats">Admin Statistik</a></li>
+	<li><a class="text-amber-400 hover:underline" href="/admin/users">Admin Users</a></li>
+	<li><a class="text-amber-400 hover:underline" href="/_/">Admin Datenbank</a></li>
 </ul>

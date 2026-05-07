@@ -1,5 +1,11 @@
 import type { StockItem } from './types';
 
+/** Normalize `storages.quick_items` json to label strings. */
+export function parseQuickItems(raw: unknown): string[] {
+	if (!Array.isArray(raw)) return [];
+	return raw.map((x) => String(x ?? '').trim()).filter((s) => s.length > 0);
+}
+
 export function normalizeItems(raw: StockItem[]): StockItem[] {
 	return raw
 		.map((x) => ({

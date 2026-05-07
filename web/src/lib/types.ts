@@ -11,6 +11,8 @@ export type StockRequestRecord = RecordModel & {
 	requested_at?: string;
 	bar: string;
 	bar_name: string;
+	storage: string;
+	storage_name: string;
 	items: StockItem[];
 	status: RequestStatus;
 	accepted_at?: string;
@@ -18,4 +20,11 @@ export type StockRequestRecord = RecordModel & {
 	bar_device_nickname?: string;
 	accepted_by_nickname?: string;
 	done_by_nickname?: string;
+};
+
+/** `storages` collection row (hub + quick_items JSON). */
+export type StorageHubRecord = RecordModel & {
+	name: string;
+	sort: number;
+	quick_items?: unknown;
 };

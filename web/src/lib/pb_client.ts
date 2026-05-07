@@ -1,10 +1,12 @@
 import PocketBase from 'pocketbase';
 import { browser } from '$app/environment';
+import type { RecordModel } from 'pocketbase';
 import type { StockRequestRecord } from './types';
 
 export const COLLECTIONS = {
 	requests: 'requests',
 	bars: 'bars',
+	storages: 'storages',
 	users: 'users'
 } as const;
 
@@ -50,13 +52,29 @@ export function nowIso(): string {
 	return new Date().toISOString();
 }
 
-/** Pending, accepted, and done requests (storage hub list including history). */
-export function storageOpenRequestsFilter(): string {
-	return pb().filter('(status = {:p} || status = {:a} || status = {:d})', {
-		p: 'pending',
-		a: 'accepted',
-		d: 'done'
+/** Pending, accepted, and done requests for one hub (storage hub list including history). */
+export function storageOpenRequestsFilter(storageId: string): string {
+	return pb().filter(
+		'(status = {:p} || status = {:a} || status = {:d}) && storage.id ?= {:sid}',
+		{
+			p: 'pending',
+			a: 'accepted',
+			d: 'done',
+			sid: storageId
+		}
+	);
+}
+
+/** Hub with lowest `sort` (then `id`); custom bar items route here. */
+export function defaultStorageId(storages: RecordModel[]): string | null {
+	if (storages.length === 0) return null;
+	const sorted = [...storages].sort((a, b) => {
+		const sa = typeof a.sort === 'number' ? a.sort : Number(a.sort) || 0;
+		const sb = typeof b.sort === 'number' ? b.sort : Number(b.sort) || 0;
+		if (sa !== sb) return sa - sb;
+		return a.id.localeCompare(b.id);
 	});
+	return sorted[0]?.id ?? null;
 }
 
 /** Requests for one bar (bar dashboard list). Use relation id match for PocketBase compatibility. */
