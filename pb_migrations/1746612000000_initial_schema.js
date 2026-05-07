@@ -53,7 +53,7 @@ migrate(
 					name: 'hub_order',
 					required: true,
 					onlyInt: true,
-					min: 0
+					min: 1
 				},
 				{
 					type: 'json',
@@ -79,11 +79,11 @@ migrate(
 			'Soft drinks'
 		];
 
-		const main = new Record(storages, {
-			name: 'Main',
-			hub_order: 0,
-			quick_items: presetLabels
-		});
+		// PocketBase treats 0 as blank for required number fields in migrations; use set() + min 1.
+		const main = new Record(storages);
+		main.set('name', 'Main');
+		main.set('hub_order', 1);
+		main.set('quick_items', presetLabels);
 		app.save(main);
 
 		const users = app.findCollectionByNameOrId('users');

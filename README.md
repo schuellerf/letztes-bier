@@ -30,7 +30,7 @@ In the Admin UI, create `users` records with:
 
 Create **`bars`** records first (e.g. “Main Bar”, “VIP”), then bar accounts with `role = bar` and `bar` set to that record.
 
-Create **`storages`** records for each hub (e.g. “Main”, “Annex”). Set **`hub_order`** so the **lowest** number is the default hub (custom items on the bar go there). Seed migration creates **Main** at `hub_order = 0`. Each **`storage`** user must have **`storage`** set to their hub’s record.
+Create **`storages`** records for each hub (e.g. “Main”, “Annex”). Set **`hub_order`** so the **lowest** number is the default hub (custom items on the bar go there). Seed migration creates **Main** at **`hub_order = 1`** (values start at 1). Each **`storage`** user must have **`storage`** set to their hub’s record.
 
 ### Join links
 
