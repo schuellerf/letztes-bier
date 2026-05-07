@@ -49,3 +49,13 @@ function byAcceptedAsc(a: StockRequestRecord, b: StockRequestRecord) {
 export function nowIso(): string {
 	return new Date().toISOString();
 }
+
+/** Pending or accepted requests (storage hub list). */
+export function storageOpenRequestsFilter(): string {
+	return pb().filter('(status = {:p} || status = {:a})', { p: 'pending', a: 'accepted' });
+}
+
+/** Requests for one bar (bar dashboard list). Use relation id match for PocketBase compatibility. */
+export function barRequestsFilter(barId: string): string {
+	return pb().filter('bar.id ?= {:b}', { b: barId });
+}

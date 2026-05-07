@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { pb, COLLECTIONS, getPbUrl } from '$lib/pb_client';
+	import { pb, COLLECTIONS } from '$lib/pb_client';
+	import { formatPbClientError, logPbError } from '$lib/pb_errors';
+	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
 	import { roleFromRecord } from '$lib/auth';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockRequestRecord } from '$lib/types';
@@ -46,51 +48,53 @@
 			await pb().collection(COLLECTIONS.users).authWithPassword(email.trim(), password);
 			syncAuth();
 			await loadStats();
-		} catch {
-			err = 'Sign-in failed.';
+		} catch (e) {
+			logPbError('admin.login', e);
+			err = formatPbClientError(e);
 		} finally {
 			loading = false;
 		}
 	}
 
-	function logout() {
-		pb().authStore.clear();
-		syncAuth();
-		loaded = false;
-	}
-
 	async function loadStats() {
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'admin') return;
-		const items = await pb()
-			.collection(COLLECTIONS.requests)
-			.getFullList<StockRequestRecord>({ perPage: 500, sort: '-created' });
+		err = '';
+		try {
+			const items = await pb()
+				.collection(COLLECTIONS.requests)
+				.getFullList<StockRequestRecord>({ perPage: 500, sort: '-id' });
 
-		const barCounts: Record<string, number> = {};
-		const pickMs: number[] = [];
-		const totalMs: number[] = [];
-		const hours = Array(24).fill(0);
+			const barCounts: Record<string, number> = {};
+			const pickMs: number[] = [];
+			const totalMs: number[] = [];
+			const hours = Array(24).fill(0);
 
-		for (const r of items) {
-			barCounts[r.bar_name] = (barCounts[r.bar_name] ?? 0) + 1;
-			const c = new Date(r.created).getTime();
-			const h = new Date(r.created).getHours();
-			hours[h]++;
+			for (const r of items) {
+				barCounts[r.bar_name] = (barCounts[r.bar_name] ?? 0) + 1;
+				const c = new Date(r.created).getTime();
+				const h = new Date(r.created).getHours();
+				hours[h]++;
 
-			if (r.status === 'done' && r.accepted_at) {
-				pickMs.push(new Date(r.accepted_at).getTime() - c);
+				if (r.status === 'done' && r.accepted_at) {
+					pickMs.push(new Date(r.accepted_at).getTime() - c);
+				}
+				if (r.status === 'done' && r.completed_at) {
+					totalMs.push(new Date(r.completed_at).getTime() - c);
+				}
 			}
-			if (r.status === 'done' && r.completed_at) {
-				totalMs.push(new Date(r.completed_at).getTime() - c);
-			}
+
+			pickMs.sort((a, b) => a - b);
+			totalMs.sort((a, b) => a - b);
+			perBar = barCounts;
+			durationsPickMin = pickMs.map((ms) => ms / 60000);
+			durationsTotal = totalMs.map((ms) => ms / 60000);
+			peakHours = hours;
+			loaded = true;
+		} catch (e) {
+			logPbError('admin.loadStats', e);
+			err = formatPbClientError(e);
+			loaded = false;
 		}
-
-		pickMs.sort((a, b) => a - b);
-		totalMs.sort((a, b) => a - b);
-		perBar = barCounts;
-		durationsPickMin = pickMs.map((ms) => ms / 60000);
-		durationsTotal = totalMs.map((ms) => ms / 60000);
-		peakHours = hours;
-		loaded = true;
 	}
 
 	onMount(() => {
@@ -116,11 +120,11 @@
 </script>
 
 <h1 class="mb-2 text-3xl font-bold text-amber-300">Admin statistics</h1>
-<p class="mb-4 text-zinc-400">
-	Server: <code class="text-zinc-300">{getPbUrl() || '(same origin)'}</code>
-</p>
 
 {#if !authValid || role !== 'admin'}
+	{#if authValid && role !== 'admin'}
+		<WrongRoleHint expected="admin" current={role} />
+	{/if}
 	<form class="max-w-md space-y-4 rounded-xl border border-zinc-700 bg-zinc-900/40 p-6" onsubmit={login}>
 		<p class="text-zinc-400">Sign in with an <strong class="text-zinc-200">admin</strong> account.</p>
 		<div>
@@ -162,18 +166,15 @@
 		<button
 			type="button"
 			class="rounded-lg bg-zinc-800 px-4 py-2 text-zinc-200 hover:bg-zinc-700"
-			onclick={() => loadStats()}
+			onclick={() => void loadStats()}
 		>
 			Refresh
 		</button>
-		<button
-			type="button"
-			class="rounded-lg border border-zinc-600 px-4 py-2 text-zinc-300 hover:bg-zinc-800"
-			onclick={logout}
-		>
-			Sign out
-		</button>
 	</div>
+
+	{#if err}
+		<p class="mb-4 text-red-400" role="alert">{err}</p>
+	{/if}
 
 	{#if loaded}
 		<section class="mb-8">

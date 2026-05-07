@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { pb, COLLECTIONS, getPbUrl } from '$lib/pb_client';
+	import { pb, COLLECTIONS, barRequestsFilter } from '$lib/pb_client';
+	import { formatPbClientError, logPbError, pbErrorSuggestsOffline } from '$lib/pb_errors';
+	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
 	import { roleFromRecord, barIdFromRecord } from '$lib/auth';
-	import { getDeviceNickname, setDeviceNickname } from '$lib/device_nickname';
-	import { ensureNotifyPermission, notifyRequestAccepted } from '$lib/notifications';
+	import { getDeviceNickname } from '$lib/device_nickname';
+	import { notifyRequestAccepted } from '$lib/notifications';
 	import { normalizeItems, summarizeItems } from '$lib/items';
+	import { registerRealtimeCleanup } from '$lib/logout_hooks';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockItem, StockRequestRecord } from '$lib/types';
 	import { connection } from '$lib/connection.svelte';
@@ -27,13 +30,12 @@
 	let email = $state('');
 	let password = $state('');
 	let err = $state('');
+	let listError = $state('');
 	let loading = $state(false);
-	let nickname = $state('');
 	let requests = $state<StockRequestRecord[]>([]);
 	let pickLabel = $state('');
 	let pickQty = $state(1);
 	let joinMismatch = $state(false);
-	let notifyStatus = $state<NotificationPermission | 'unsupported'>('default');
 
 	let authValid = $state(false);
 	let record = $state<RecordModel | null>(null);
@@ -51,19 +53,22 @@
 	async function refreshList() {
 		const bid = barIdFromRecord(pb().authStore.record);
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar' || !bid) return;
+		listError = '';
 		try {
 			const list = await pb()
 				.collection(COLLECTIONS.requests)
 				.getFullList<StockRequestRecord>({
-					sort: '-created',
-					filter: `bar = "${bid}"`,
+					// PB may reject sort on `created` for this schema; `id` order matches creation closely.
+					sort: '-id',
+					filter: barRequestsFilter(bid),
 					perPage: 200
 				});
 			requests = list;
 			connection.reconnecting = false;
 		} catch (e) {
-			console.error(e);
-			connection.reconnecting = true;
+			logPbError('bar.refreshList', e);
+			listError = formatPbClientError(e);
+			if (pbErrorSuggestsOffline(e)) connection.reconnecting = true;
 		}
 	}
 
@@ -81,21 +86,12 @@
 			joinMismatch = Boolean(expect && bid && expect !== bid);
 			await bindRealtime();
 			await refreshList();
-		} catch {
-			err = 'Sign-in failed. Check email and password.';
+		} catch (e) {
+			logPbError('bar.login', e);
+			err = formatPbClientError(e);
 		} finally {
 			loading = false;
 		}
-	}
-
-	function logout() {
-		if (unsubRequests) {
-			unsubRequests();
-			unsubRequests = null;
-		}
-		pb().authStore.clear();
-		syncAuth();
-		requests = [];
 	}
 
 	let cart = $state<StockItem[]>([]);
@@ -131,7 +127,6 @@
 			err = 'Add at least one line item.';
 			return;
 		}
-		setDeviceNickname(nickname);
 		const nick = getDeviceNickname();
 		const name =
 			(pb().authStore.record?.expand?.bar as { name?: string } | undefined)?.name ??
@@ -150,8 +145,9 @@
 			cart = [];
 			pickQty = 1;
 			await refreshList();
-		} catch {
-			err = 'Could not create request.';
+		} catch (e) {
+			logPbError('bar.createRequest', e);
+			err = formatPbClientError(e);
 		} finally {
 			loading = false;
 		}
@@ -162,14 +158,6 @@
 		if (s === 'accepted') return 'Accepted';
 		if (s === 'done') return 'Done';
 		return s;
-	}
-
-	async function enableNotify() {
-		if (!('Notification' in window)) {
-			notifyStatus = 'unsupported';
-			return;
-		}
-		notifyStatus = await ensureNotifyPermission();
 	}
 
 	async function bindRealtime() {
@@ -192,13 +180,25 @@
 	}
 
 	onMount(() => {
-		nickname = getDeviceNickname();
-		if (!('Notification' in window)) notifyStatus = 'unsupported';
-		else notifyStatus = Notification.permission;
+		let removeCleanup: (() => void) | undefined;
+		removeCleanup = registerRealtimeCleanup(() => {
+			if (unsubRequests) {
+				unsubRequests();
+				unsubRequests = null;
+			}
+		});
 
 		syncAuth();
 		const unsubAuth = pb().authStore.onChange(() => {
 			syncAuth();
+			if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar') {
+				if (unsubRequests) {
+					unsubRequests();
+					unsubRequests = null;
+				}
+				requests = [];
+				listError = '';
+			}
 		}, true);
 
 		void pb()
@@ -217,6 +217,7 @@
 			.catch(() => {});
 
 		return () => {
+			removeCleanup?.();
 			unsubAuth();
 			if (unsubRequests) unsubRequests();
 		};
@@ -224,9 +225,6 @@
 </script>
 
 <h1 class="mb-2 text-3xl font-bold text-amber-300">Bar</h1>
-<p class="mb-4 text-zinc-400">
-	Server: <code class="text-zinc-300">{getPbUrl() || '(same origin)'}</code>
-</p>
 
 {#if joinMismatch}
 	<div class="mb-4 rounded-lg border border-amber-700 bg-amber-950/50 p-4 text-amber-200">
@@ -235,45 +233,10 @@
 	</div>
 {/if}
 
-<div class="mb-4 rounded-lg border border-zinc-700 bg-zinc-900/50 p-4">
-	<label class="mb-1 block text-sm font-medium text-zinc-400" for="nick">This device nickname</label>
-	<input
-		id="nick"
-		bind:value={nickname}
-		class="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-4 py-3 text-xl text-zinc-100"
-		placeholder="e.g. Anna iPad"
-		autocomplete="off"
-	/>
-	<button
-		type="button"
-		class="rounded-lg bg-zinc-800 px-4 py-3 text-lg text-zinc-200 hover:bg-zinc-700"
-		onclick={() => setDeviceNickname(nickname)}
-	>
-		Save nickname
-	</button>
-	<div class="mt-3 flex flex-wrap items-center gap-3">
-		<button
-			type="button"
-			class="rounded-lg bg-amber-600 px-4 py-3 text-lg font-semibold text-black hover:bg-amber-500"
-			onclick={() => void enableNotify()}
-		>
-			Enable notifications
-		</button>
-		<span class="text-zinc-500">
-			{#if notifyStatus === 'unsupported'}
-				Not supported in this browser.
-			{:else if notifyStatus === 'denied'}
-				Notifications blocked &mdash; check browser settings.
-			{:else if notifyStatus === 'granted'}
-				Notifications on.
-			{:else}
-				Not yet enabled.
-			{/if}
-		</span>
-	</div>
-</div>
-
 {#if !authValid || role !== 'bar'}
+	{#if authValid && role !== 'bar'}
+		<WrongRoleHint expected="bar" current={role} />
+	{/if}
 	<form class="space-y-4 rounded-xl border border-zinc-700 bg-zinc-900/40 p-6" onsubmit={login}>
 		<p class="text-zinc-400">Sign in with your <strong class="text-zinc-200">bar</strong> account.</p>
 		<div>
@@ -307,16 +270,18 @@
 		</button>
 	</form>
 {:else}
-	<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+	<div class="mb-4">
 		<p class="text-xl text-zinc-300">{barDisplayName}</p>
-		<button
-			type="button"
-			class="rounded-lg border border-zinc-600 px-4 py-2 text-zinc-300 hover:bg-zinc-800"
-			onclick={logout}
-		>
-			Sign out
-		</button>
 	</div>
+
+	{#if listError}
+		<div
+			class="mb-4 rounded-lg border border-red-800 bg-red-950/40 px-4 py-3 text-red-200"
+			role="alert"
+		>
+			{listError}
+		</div>
+	{/if}
 
 	<section class="mb-8 rounded-xl border border-zinc-700 bg-zinc-900/40 p-4">
 		<h2 class="mb-3 text-2xl font-semibold text-zinc-200">Quick add</h2>

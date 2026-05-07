@@ -5,7 +5,7 @@ pb_data/
 web/.svelte-kit/
 web/build/
 web/dist/
-
+.playwright-mcp/
 web/node_modules/
 
 # Env / secrets (keep example tracked)

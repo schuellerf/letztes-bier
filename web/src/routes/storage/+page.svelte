@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { pb, COLLECTIONS, getPbUrl, nowIso, sortRequestsForStorage } from '$lib/pb_client';
+	import { pb, COLLECTIONS, nowIso, sortRequestsForStorage, storageOpenRequestsFilter } from '$lib/pb_client';
+	import { formatPbClientError, logPbError, pbErrorSuggestsOffline } from '$lib/pb_errors';
+	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
 	import { roleFromRecord } from '$lib/auth';
-	import { getDeviceNickname, setDeviceNickname } from '$lib/device_nickname';
-	import { ensureNotifyPermission, notifyNewPendingRequest } from '$lib/notifications';
+	import { getDeviceNickname } from '$lib/device_nickname';
+	import { notifyNewPendingRequest } from '$lib/notifications';
 	import { summarizeItems } from '$lib/items';
+	import { registerRealtimeCleanup } from '$lib/logout_hooks';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockRequestRecord } from '$lib/types';
 	import { connection } from '$lib/connection.svelte';
@@ -13,9 +16,8 @@
 	let password = $state('');
 	let err = $state('');
 	let loading = $state(false);
-	let nickname = $state('');
+	let listError = $state('');
 	let requests = $state<StockRequestRecord[]>([]);
-	let notifyStatus = $state<NotificationPermission | 'unsupported'>('default');
 	let busyId = $state<string | null>(null);
 
 	let authValid = $state(false);
@@ -31,19 +33,22 @@
 
 	async function refreshList() {
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'storage') return;
+		listError = '';
 		try {
 			const list = await pb()
 				.collection(COLLECTIONS.requests)
 				.getFullList<StockRequestRecord>({
-					sort: 'created',
-					filter: 'status != "done"',
+					// Client reorders by `created`; server may reject sort=created.
+					sort: 'id',
+					filter: storageOpenRequestsFilter(),
 					perPage: 500
 				});
 			requests = sortRequestsForStorage(list);
 			connection.reconnecting = false;
 		} catch (e) {
-			console.error(e);
-			connection.reconnecting = true;
+			logPbError('storage.refreshList', e);
+			listError = formatPbClientError(e);
+			if (pbErrorSuggestsOffline(e)) connection.reconnecting = true;
 		}
 	}
 
@@ -56,26 +61,16 @@
 			syncAuth();
 			await bindRealtime();
 			await refreshList();
-		} catch {
-			err = 'Sign-in failed.';
+		} catch (e) {
+			logPbError('storage.login', e);
+			err = formatPbClientError(e);
 		} finally {
 			loading = false;
 		}
 	}
 
-	function logout() {
-		if (unsub) {
-			unsub();
-			unsub = null;
-		}
-		pb().authStore.clear();
-		syncAuth();
-		requests = [];
-	}
-
 	async function acceptRequest(r: StockRequestRecord) {
 		if (r.status !== 'pending') return;
-		setDeviceNickname(nickname);
 		const nick = getDeviceNickname();
 		busyId = r.id;
 		try {
@@ -85,8 +80,9 @@
 				accepted_by_nickname: nick || ''
 			});
 			await refreshList();
-		} catch {
-			err = 'Could not accept request.';
+		} catch (e) {
+			logPbError('storage.acceptRequest', e);
+			err = formatPbClientError(e);
 		} finally {
 			busyId = null;
 		}
@@ -101,19 +97,12 @@
 				completed_at: nowIso()
 			});
 			await refreshList();
-		} catch {
-			err = 'Could not complete request.';
+		} catch (e) {
+			logPbError('storage.doneRequest', e);
+			err = formatPbClientError(e);
 		} finally {
 			busyId = null;
 		}
-	}
-
-	async function enableNotify() {
-		if (!('Notification' in window)) {
-			notifyStatus = 'unsupported';
-			return;
-		}
-		notifyStatus = await ensureNotifyPermission();
 	}
 
 	async function bindRealtime() {
@@ -136,12 +125,25 @@
 	}
 
 	onMount(() => {
-		nickname = getDeviceNickname();
-		if (!('Notification' in window)) notifyStatus = 'unsupported';
-		else notifyStatus = Notification.permission;
+		const removeCleanup = registerRealtimeCleanup(() => {
+			if (unsub) {
+				unsub();
+				unsub = null;
+			}
+		});
 
 		syncAuth();
-		const unsubAuth = pb().authStore.onChange(() => syncAuth(), true);
+		const unsubAuth = pb().authStore.onChange(() => {
+			syncAuth();
+			if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'storage') {
+				if (unsub) {
+					unsub();
+					unsub = null;
+				}
+				requests = [];
+				listError = '';
+			}
+		}, true);
 
 		void pb()
 			.collection(COLLECTIONS.users)
@@ -156,6 +158,7 @@
 			.catch(() => {});
 
 		return () => {
+			removeCleanup();
 			unsubAuth();
 			if (unsub) unsub();
 		};
@@ -166,49 +169,11 @@
 </script>
 
 <h1 class="mb-2 text-3xl font-bold text-amber-300">Storage hub</h1>
-<p class="mb-4 text-zinc-400">
-	Server: <code class="text-zinc-300">{getPbUrl() || '(same origin)'}</code>
-</p>
-
-<div class="mb-4 rounded-lg border border-zinc-700 bg-zinc-900/50 p-4">
-	<label class="mb-1 block text-sm font-medium text-zinc-400" for="sn">This device nickname</label>
-	<input
-		id="sn"
-		bind:value={nickname}
-		class="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-4 py-3 text-xl text-zinc-100"
-		placeholder="e.g. Mike dock"
-		autocomplete="off"
-	/>
-	<button
-		type="button"
-		class="rounded-lg bg-zinc-800 px-4 py-3 text-lg text-zinc-200 hover:bg-zinc-700"
-		onclick={() => setDeviceNickname(nickname)}
-	>
-		Save nickname
-	</button>
-	<div class="mt-3 flex flex-wrap items-center gap-3">
-		<button
-			type="button"
-			class="rounded-lg bg-amber-600 px-4 py-3 text-lg font-semibold text-black hover:bg-amber-500"
-			onclick={() => void enableNotify()}
-		>
-			Enable notifications
-		</button>
-		<span class="text-zinc-500">
-			{#if notifyStatus === 'unsupported'}
-				Not supported.
-			{:else if notifyStatus === 'denied'}
-				Blocked in browser settings.
-			{:else if notifyStatus === 'granted'}
-				Notifications on.
-			{:else}
-				Not yet enabled.
-			{/if}
-		</span>
-	</div>
-</div>
 
 {#if !authValid || role !== 'storage'}
+	{#if authValid && role !== 'storage'}
+		<WrongRoleHint expected="storage" current={role} />
+	{/if}
 	<form class="max-w-md space-y-4 rounded-xl border border-zinc-700 bg-zinc-900/40 p-6" onsubmit={login}>
 		<p class="text-zinc-400">Sign in with a <strong class="text-zinc-200">storage</strong> account.</p>
 		<div>
@@ -242,15 +207,14 @@
 		</button>
 	</form>
 {:else}
-	<div class="mb-4 flex justify-end">
-		<button
-			type="button"
-			class="rounded-lg border border-zinc-600 px-4 py-2 text-zinc-300 hover:bg-zinc-800"
-			onclick={logout}
+	{#if listError}
+		<div
+			class="mb-4 rounded-lg border border-red-800 bg-red-950/40 px-4 py-3 text-red-200"
+			role="alert"
 		>
-			Sign out
-		</button>
-	</div>
+			{listError}
+		</div>
+	{/if}
 
 	{#if err}
 		<p class="mb-4 text-red-400">{err}</p>
