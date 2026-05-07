@@ -82,7 +82,7 @@
 				open = !open;
 			}}
 		>
-			{#if notifyNotEnabled}⚠️&nbsp;{/if}Account
+			Account{#if notifyNotEnabled}&nbsp;⚠️{/if}
 		</button>
 		{#if open}
 			<div

@@ -451,7 +451,7 @@
 				{@const inCart = cart.some((line) => line.cartKey === p.cartKey)}
 				<button
 					type="button"
-					class="rounded-xl border px-4 py-4 text-xl {inCart
+					class="rounded-lg border px-2.5 py-1.5 text-sm {inCart
 						? 'border-sky-500 bg-sky-800 text-sky-100 shadow-md shadow-sky-950/50'
 						: 'border-zinc-600 bg-zinc-800 hover:bg-zinc-700'}"
 					onclick={() => togglePreset(p)}
@@ -461,36 +461,34 @@
 			{/each}
 		</div>
 		<div class="flex flex-wrap items-end gap-3">
-			<div class="min-w-[10rem] flex-1">
-				<label class="mb-1 block text-sm text-zinc-400" for="qty">Qty</label>
+			<div class="min-w-[8rem] flex-1">
 				<input
 					id="qty"
 					type="number"
 					min="1"
 					max="99"
 					bind:value={pickQty}
-					class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-4 py-4 text-2xl"
+					class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-2 py-1.5 text-base"
 				/>
 			</div>
-			<div class="min-w-[12rem] flex-[2]">
-				<label class="mb-1 block text-sm text-zinc-400" for="custom">Custom item</label>
+			<div class="min-w-[10rem] flex-[2]">
 				<input
 					id="custom"
 					bind:value={pickLabel}
-					class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-4 py-4 text-xl"
+					class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-2 py-1.5 text-base"
 					placeholder="e.g. Napkins"
 				/>
 			</div>
 			<button
 				type="button"
-				class="rounded-xl bg-zinc-700 px-6 py-4 text-xl font-medium hover:bg-zinc-600"
+				class="rounded-lg bg-zinc-700 px-3 py-1.5 text-sm font-medium hover:bg-zinc-600"
 				onclick={addCustom}
 			>
 				Add
 			</button>
 		</div>
 		{#if cart.length > 0}
-			<ul class="mt-4 space-y-2 border-t border-zinc-700 pt-4 text-lg">
+			<ul class="mt-4 space-y-2 border-t border-zinc-700 pt-4 text-sm">
 				{#each cart as line (line.cartKey)}
 					<li class="flex items-center gap-2 text-zinc-200">
 						<button
@@ -536,7 +534,7 @@
 			<button
 				type="submit"
 				disabled={loading}
-				class="w-full rounded-2xl bg-amber-500 py-6 text-3xl font-bold text-black shadow-lg shadow-amber-900/40 disabled:opacity-50"
+				class="w-full rounded-xl bg-amber-500 py-2.5 text-base font-bold text-black shadow-md shadow-amber-900/30 disabled:opacity-50"
 			>
 				Send request
 			</button>
