@@ -44,7 +44,20 @@
 					// Client reorders by `created`; server may reject sort=created.
 					sort: 'id',
 					filter: storageOpenRequestsFilter(),
-					perPage: 500
+					perPage: 500,
+					fields: [
+						'id',
+						'created',
+						'updated',
+						'bar',
+						'bar_name',
+						'items',
+						'status',
+						'accepted_at',
+						'completed_at',
+						'bar_device_nickname',
+						'accepted_by_nickname'
+					].join(',')
 				});
 			requests = sortRequestsForStorage(list);
 			connection.reconnecting = false;
@@ -241,10 +254,13 @@
 							>
 								Requested {elapsedHhMmSsSince(parsePbDate(r.created), nowMs)} ago
 							</p>
-							<p class="text-2xl font-semibold text-zinc-100">{r.bar_name}</p>
-							{#if r.bar_device_nickname}
-								<p class=" text-lg text-amber-200/90">Bar device: {r.bar_device_nickname}</p>
-							{/if}
+							<p class="text-2xl font-semibold text-zinc-100">
+								{r.bar_name}{#if r.bar_device_nickname?.trim()}
+									<span class="font-normal text-amber-200/90">
+										({r.bar_device_nickname.trim()})</span
+									>
+								{/if}
+							</p>
 						</div>
 						<div class="flex flex-col items-end gap-2">
 							<button
@@ -272,7 +288,13 @@
 				<li class="rounded-2xl border-2 border-sky-800/60 bg-zinc-900/50 p-4">
 					<div class="mb-2 flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p class="text-xl font-medium text-zinc-100">{r.bar_name}</p>
+							<p class="text-xl font-medium text-zinc-100">
+								{r.bar_name}{#if r.bar_device_nickname?.trim()}
+									<span class="font-normal text-amber-200/90">
+										({r.bar_device_nickname.trim()})</span
+									>
+								{/if}
+							</p>
 							{#if r.accepted_by_nickname}
 								<p class="text-zinc-400">Accepted by {r.accepted_by_nickname}</p>
 							{/if}

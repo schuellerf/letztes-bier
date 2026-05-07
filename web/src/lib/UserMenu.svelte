@@ -12,11 +12,13 @@
 	let open = $state(false);
 	let notifyStatus = $state<NotificationPermission | 'unsupported'>('default');
 	let authValid = $state(false);
+	let userEmail = $state('');
 
 	let rootEl = $state<HTMLDivElement | undefined>(undefined);
 
 	function syncAuth() {
 		authValid = pb().authStore.isValid;
+		userEmail = String(pb().authStore.record?.email ?? '').trim();
 	}
 
 	const showMenu = $derived(authValid && MENU_PATHS.has(page.url.pathname));
@@ -84,6 +86,17 @@
 			<div
 				class="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,20rem)] rounded-xl border border-zinc-600 bg-zinc-900 p-4 shadow-xl"
 			>
+				<label class="mb-1 block text-sm font-medium text-zinc-400" for="um-email">E-Mail</label>
+				<input
+					id="um-email"
+					type="email"
+					readonly
+					tabindex="-1"
+					value={userEmail}
+					class="mb-4 w-full cursor-default rounded-lg border border-zinc-700 bg-zinc-900/80 px-3 py-2 text-base text-zinc-300 read-only:opacity-90"
+					autocomplete="off"
+					aria-readonly="true"
+				/>
 				<label class="mb-1 block text-sm font-medium text-zinc-400" for="um-nick">Device nickname</label>
 				<input
 					id="um-nick"

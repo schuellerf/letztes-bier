@@ -25,13 +25,33 @@ export function parsePbDate(value: string | number | Date | undefined | null): D
 	}
 	let s = t;
 	if (!s.includes('T')) {
-		s = s.replace(/^(\d{4}-\d{2}-\d{2})[ T]/, '$1T');
+		s = s.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
 	}
 	s = truncateIsoFractionalSeconds(s);
 	let d = new Date(s);
 	if (Number.isNaN(d.getTime()) && !t.includes('T')) {
 		s = truncateIsoFractionalSeconds(t.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T'));
 		d = new Date(s);
+	}
+	if (!Number.isNaN(d.getTime())) return d;
+
+	const m = t.match(
+		/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(?:\s*(Z|UTC|GMT))?\s*$/i
+	);
+	if (!m) return null;
+	const y = Number(m[1]);
+	const mo = Number(m[2]) - 1;
+	const day = Number(m[3]);
+	const hh = Number(m[4]);
+	const min = Number(m[5]);
+	const sec = Number(m[6]);
+	let ms = 0;
+	if (m[7]) ms = Number(m[7].slice(0, 3).padEnd(3, '0'));
+	const zulu = Boolean(m[8]);
+	if (zulu) {
+		d = new Date(Date.UTC(y, mo, day, hh, min, sec, ms));
+	} else {
+		d = new Date(y, mo, day, hh, min, sec, ms);
 	}
 	return Number.isNaN(d.getTime()) ? null : d;
 }
