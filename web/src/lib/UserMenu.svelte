@@ -25,6 +25,14 @@
 
 	const notifyNotEnabled = $derived(notifyStatus !== 'granted');
 
+	function refreshNotifyStatus() {
+		if (!('Notification' in window)) {
+			notifyStatus = 'unsupported';
+			return;
+		}
+		notifyStatus = Notification.permission;
+	}
+
 	function close() {
 		open = false;
 	}
@@ -34,7 +42,8 @@
 			notifyStatus = 'unsupported';
 			return;
 		}
-		notifyStatus = await ensureNotifyPermission();
+		await ensureNotifyPermission();
+		refreshNotifyStatus();
 	}
 
 	function handleSignOut() {
@@ -45,11 +54,29 @@
 
 	onMount(() => {
 		nickname = getDeviceNickname();
-		if (!('Notification' in window)) notifyStatus = 'unsupported';
-		else notifyStatus = Notification.permission;
+		refreshNotifyStatus();
 
 		syncAuth();
 		const offAuth = pb().authStore.onChange(() => syncAuth(), true);
+
+		let alive = true;
+		let detachPerm: (() => void) | null = null;
+		void navigator.permissions
+			.query({ name: 'notifications' as PermissionName })
+			.then((status) => {
+				if (!alive) return;
+				const onPermChange = () => refreshNotifyStatus();
+				status.addEventListener('change', onPermChange);
+				detachPerm = () => status.removeEventListener('change', onPermChange);
+			})
+			.catch(() => {});
+
+		const onVis = () => {
+			if (document.visibilityState === 'visible') refreshNotifyStatus();
+		};
+		const onWinFocus = () => refreshNotifyStatus();
+		document.addEventListener('visibilitychange', onVis);
+		window.addEventListener('focus', onWinFocus);
 
 		const onDocClick = (e: MouseEvent) => {
 			if (!open) return;
@@ -63,6 +90,10 @@
 		document.addEventListener('keydown', onKey);
 
 		return () => {
+			alive = false;
+			detachPerm?.();
+			document.removeEventListener('visibilitychange', onVis);
+			window.removeEventListener('focus', onWinFocus);
 			offAuth();
 			document.removeEventListener('click', onDocClick);
 			document.removeEventListener('keydown', onKey);
@@ -80,6 +111,7 @@
 			onclick={(e) => {
 				e.stopPropagation();
 				open = !open;
+				if (open) refreshNotifyStatus();
 			}}
 		>
 			Account{#if notifyNotEnabled}&nbsp;⚠️{/if}
