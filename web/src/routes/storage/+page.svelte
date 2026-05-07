@@ -34,6 +34,7 @@
 	let unsub: null | (() => void) = null;
 	let nowMs = $state(Date.now());
 	let doneOpen = $state(false);
+	let settingsOpen = $state(false);
 	let joinMismatch = $state(false);
 
 	let settingsLines = $state('');
@@ -264,7 +265,7 @@
 	);
 </script>
 
-<h1 class="mb-2 text-3xl font-bold text-amber-300">Storage hub</h1>
+<h1 class="mb-2 text-3xl font-bold text-amber-300">Lager</h1>
 
 {#if joinMismatch}
 	<div class="mb-4 rounded-lg border border-amber-700 bg-amber-950/50 p-4 text-amber-200">
@@ -451,35 +452,44 @@
 		</details>
 	{/if}
 
-	<section class="mt-12 max-w-xl rounded-xl border border-zinc-700 bg-zinc-900/30 p-6">
-		<h2 class="mb-2 text-xl font-semibold text-zinc-200">Settings</h2>
-		<p class="mb-4 text-sm text-zinc-500">
-			One label per line. These lines appear as quick-add buttons on bar devices (together with other hubs).
-			Hub name and hub order are managed in the admin dashboard.
-		</p>
-		{#if settingsErr}
-			<p class="mb-2 text-sm text-red-300">{settingsErr}</p>
-		{/if}
-		{#if settingsOk}
-			<p class="mb-2 text-sm text-emerald-400">Saved.</p>
-		{/if}
-		<form class="space-y-3" onsubmit={saveSettings}>
-			<label class="block">
-				<span class="mb-1 block text-sm text-zinc-400">Quick item labels</span>
-				<textarea
-					bind:value={settingsLines}
-					rows="12"
-					class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-200"
-					placeholder="One label per line"
-				></textarea>
-			</label>
-			<button
-				type="submit"
-				disabled={settingsBusy}
-				class="rounded-lg bg-zinc-700 px-4 py-2 font-medium text-zinc-100 hover:bg-zinc-600 disabled:opacity-50"
-			>
-				{settingsBusy ? 'Saving…' : 'Save quick items'}
-			</button>
-		</form>
-	</section>
+	<details
+		class="mt-12 max-w-xl rounded-2xl border border-zinc-700 bg-zinc-900/30 [&_summary::-webkit-details-marker]:hidden"
+		bind:open={settingsOpen}
+	>
+		<summary
+			class="cursor-pointer select-none list-none px-6 py-3 text-xl font-semibold text-zinc-200"
+		>
+			{settingsOpen ? '⏷' : '⏵'} Settings
+		</summary>
+		<div class="space-y-4 border-t border-zinc-700 px-6 pb-6 pt-4">
+			<p class="text-sm text-zinc-500">
+				One label per line. These lines appear as quick-add buttons on bar devices (together with other hubs).
+				Hub name and hub order are managed in the admin dashboard.
+			</p>
+			{#if settingsErr}
+				<p class="text-sm text-red-300">{settingsErr}</p>
+			{/if}
+			{#if settingsOk}
+				<p class="text-sm text-emerald-400">Saved.</p>
+			{/if}
+			<form class="space-y-3" onsubmit={saveSettings}>
+				<label class="block">
+					<span class="mb-1 block text-sm text-zinc-400">Quick item labels</span>
+					<textarea
+						bind:value={settingsLines}
+						rows="12"
+						class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-200"
+						placeholder="One label per line"
+					></textarea>
+				</label>
+				<button
+					type="submit"
+					disabled={settingsBusy}
+					class="rounded-lg bg-zinc-700 px-4 py-2 font-medium text-zinc-100 hover:bg-zinc-600 disabled:opacity-50"
+				>
+					{settingsBusy ? 'Saving…' : 'Save quick items'}
+				</button>
+			</form>
+		</div>
+	</details>
 {/if}

@@ -47,6 +47,7 @@
 	let authValid = $state(false);
 	let record = $state<RecordModel | null>(null);
 	let unsubRequests: null | (() => void) = null;
+	let unsubStorages: null | (() => void) = null;
 
 	const role = $derived(roleFromRecord(record));
 	const barExpand = $derived(record?.expand?.bar as { name?: string } | undefined);
@@ -104,6 +105,8 @@
 					perPage: 200
 				});
 			storagesList = list;
+			const ids = new Set(list.map((s) => s.id));
+			cart = cart.filter((l) => ids.has(l.storageId));
 		} catch (e) {
 			logPbError('bar.loadStorages', e);
 			storagesError = formatPbClientError(e);
@@ -147,6 +150,7 @@
 			joinMismatch = Boolean(expect && bid && expect !== bid);
 			await loadStorages();
 			await bindRealtime();
+			await bindStoragesRealtime();
 			await refreshList();
 		} catch (e) {
 			logPbError('bar.login', e);
@@ -300,6 +304,19 @@
 			});
 	}
 
+	async function bindStoragesRealtime() {
+		if (unsubStorages) {
+			unsubStorages();
+			unsubStorages = null;
+		}
+		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar') return;
+		unsubStorages = await pb()
+			.collection(COLLECTIONS.storages)
+			.subscribe<StorageHubRecord>('*', () => {
+				void loadStorages();
+			});
+	}
+
 	onMount(() => {
 		const clock = setInterval(() => {
 			nowMs = Date.now();
@@ -311,6 +328,10 @@
 				unsubRequests();
 				unsubRequests = null;
 			}
+			if (unsubStorages) {
+				unsubStorages();
+				unsubStorages = null;
+			}
 		});
 
 		syncAuth();
@@ -320,6 +341,10 @@
 				if (unsubRequests) {
 					unsubRequests();
 					unsubRequests = null;
+				}
+				if (unsubStorages) {
+					unsubStorages();
+					unsubStorages = null;
 				}
 				requests = [];
 				listError = '';
@@ -339,6 +364,7 @@
 					await loadStorages();
 					await refreshList();
 					await bindRealtime();
+					await bindStoragesRealtime();
 				}
 			})
 			.catch(() => {});
@@ -348,6 +374,7 @@
 			removeCleanup?.();
 			unsubAuth();
 			if (unsubRequests) unsubRequests();
+			if (unsubStorages) unsubStorages();
 		};
 	});
 </script>

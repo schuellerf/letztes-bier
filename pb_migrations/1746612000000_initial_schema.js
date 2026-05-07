@@ -66,17 +66,18 @@ migrate(
 		app.save(storages);
 
 		const presetLabels = [
+			'Bier',
 			'Vodka',
 			'Gin',
 			'Rum',
 			'Ice',
 			'Tonic',
-			'Orange juice',
-			'Lime',
-			'Beer crates',
-			'Red wine',
-			'White wine',
-			'Soft drinks'
+			'Orangen saft',
+			'Apfelsaft',
+			'Rotwein',
+			'Weißwein',
+			'Cola',
+			'Almdudler'
 		];
 
 		// PocketBase treats 0 as blank for required number fields in migrations; use set() + min 1.

@@ -222,8 +222,11 @@
 						>
 							<span class="font-medium text-zinc-100">{u.email}</span>
 							<span class="ml-2 text-sm text-zinc-500">{(u.role as string) ?? '—'}</span>
-							<div class="text-sm text-zinc-400">Bar: {barDisplay(u)}</div>
-							<div class="text-sm text-zinc-400">Hub: {storageDisplay(u)}</div>
+							{#if u.role === 'bar'}
+								<div class="text-sm text-zinc-400">{barDisplay(u)}</div>
+							{:else if u.role === 'storage'}
+								<div class="text-sm text-zinc-400">{storageDisplay(u)}</div>
+							{/if}
 						</button>
 					</li>
 				{:else}
