@@ -39,7 +39,7 @@
 	let pickLabel = $state('');
 	let pickQty = $state(1);
 	let joinMismatch = $state(false);
-	let notifyFadeId = $state<string | null>(null);
+	let notifyCooldownIds = $state<Set<string>>(new Set());
 
 	let authValid = $state(false);
 	let record = $state<RecordModel | null>(null);
@@ -134,11 +134,15 @@
 	}
 
 	function triggerNotify(r: StockRequestRecord) {
+		if (notifyCooldownIds.has(r.id)) return;
 		notifyPendingReminder(r.id, r.bar_name, r.bar_device_nickname, r.items);
-		notifyFadeId = r.id;
+		notifyCooldownIds = new Set(notifyCooldownIds).add(r.id);
+		const id = r.id;
 		setTimeout(() => {
-			if (notifyFadeId === r.id) notifyFadeId = null;
-		}, 400);
+			const rest = new Set(notifyCooldownIds);
+			rest.delete(id);
+			notifyCooldownIds = rest;
+		}, 10_000);
 	}
 
 	function addCustom() {
@@ -436,8 +440,9 @@
 							{#if r.status === 'pending'}
 								<button
 									type="button"
-									class="rounded-lg border px-3 py-1 text-sm transition-all duration-300 ease-out {notifyFadeId === r.id
-										? 'border-zinc-500 bg-zinc-700 text-zinc-200'
+									disabled={notifyCooldownIds.has(r.id)}
+									class="rounded-lg border px-3 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-95 {notifyCooldownIds.has(r.id)
+										? 'bar-notify-pulse border-sky-500 text-white'
 										: 'border-sky-500 bg-sky-600 text-white hover:bg-sky-500'}"
 									onclick={() => triggerNotify(r)}
 								>
@@ -499,3 +504,20 @@
 		{/if}
 	</section>
 {/if}
+
+<style>
+	@keyframes bar-notify-pulse-kf {
+		0%,
+		100% {
+			background-color: rgb(3 105 161); /* sky-700 */
+			border-color: rgb(3 105 161);
+		}
+		50% {
+			background-color: rgb(56 189 248); /* sky-400 */
+			border-color: rgb(14 165 233); /* sky-500 */
+		}
+	}
+	.bar-notify-pulse {
+		animation: bar-notify-pulse-kf 1.2s ease-in-out infinite;
+	}
+</style>

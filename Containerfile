@@ -18,10 +18,11 @@ RUN apk add --no-cache ca-certificates curl unzip \
 WORKDIR /pb
 COPY --from=web /src/build ./pb_public
 COPY pb_migrations ./pb_migrations
+COPY pb_hooks ./pb_hooks
 
 ENV PB_DATA_DIR=/pb/pb_data
 VOLUME ["/pb/pb_data"]
 EXPOSE 8090
 
 ENTRYPOINT ["/pb/pocketbase"]
-CMD ["serve", "--http=0.0.0.0:8090", "--dir=/pb/pb_data", "--publicDir=/pb/pb_public", "--migrationsDir=/pb/pb_migrations"]
+CMD ["serve", "--http=0.0.0.0:8090", "--dir=/pb/pb_data", "--publicDir=/pb/pb_public", "--migrationsDir=/pb/pb_migrations", "--hooksDir=/pb/pb_hooks"]

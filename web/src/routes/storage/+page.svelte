@@ -241,18 +241,18 @@
 				<li class="rounded-2xl border-2 border-amber-700/60 bg-zinc-900/50 p-4">
 					<div class="mb-2 flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p
-								class="text-xs uppercase tracking-wide text-zinc-500"
-								title={formatPbDateTime(r.requested_at)}
-							>
-								Requested {elapsedHhMmSsSince(parseRequestTimestamp(r), nowMs)} ago
-							</p>
 							<p class="text-2xl font-semibold text-zinc-100">
 								{r.bar_name}{#if r.bar_device_nickname?.trim()}
 									<span class="font-normal text-amber-200/90">
 										&nbsp;({r.bar_device_nickname.trim()})</span
 									>
 								{/if}
+							</p>
+							<p
+								class="text-xs uppercase tracking-wide text-zinc-500"
+								title={formatPbDateTime(r.requested_at)}
+							>
+								Requested {elapsedHhMmSsSince(parseRequestTimestamp(r), nowMs)} ago
 							</p>
 						</div>
 						<div class="flex flex-col items-end gap-2">
