@@ -64,8 +64,30 @@ export function formatPbDateTime(value: string | number | Date | undefined | nul
 }
 
 /** Prefer system `created`, then `updated` if the API omitted or stripped `created`. */
+const warnedUnparsedRequestIds = new Set<string>();
+
 export function parseRequestTimestamp(r: StockRequestRecord): Date | null {
-	return parsePbDate(r.created) ?? parsePbDate(r.updated);
+	const d = parsePbDate(r.created) ?? parsePbDate(r.updated);
+	if (
+		import.meta.env.DEV &&
+		import.meta.env.MODE !== 'test' &&
+		!d &&
+		r.id &&
+		!warnedUnparsedRequestIds.has(r.id)
+	) {
+		warnedUnparsedRequestIds.add(r.id);
+		console.warn(
+			'[letztes-bier] Requested time unparsed (shows "— ago"). Compare with Network → requests list JSON for this id.',
+			{
+				id: r.id,
+				created: r.created,
+				createdType: typeof r.created,
+				updated: r.updated,
+				updatedType: typeof r.updated
+			}
+		);
+	}
+	return d;
 }
 
 /** Elapsed since `from` as `HH:MM:SS` (hours unbounded; hours padded to at least 2 digits). */
