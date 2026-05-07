@@ -84,6 +84,8 @@ Neither path publishes a container registry by default; build and push `letztes-
 |------|---------|
 | `web/` | SvelteKit 5 + Tailwind, `@sveltejs/adapter-static` |
 | `pb_migrations/` | PocketBase JS migrations (`bars`, `storages`, `users`, `requests`, hooks) |
-| `Containerfile` | Build SPA → `pb_public`, bundle PocketBase binary |
+| `Containerfile` | Build SPA → `pb_public`, PocketBase, Debian+systemd vztmpl, optional **`letztes-bier-push`** binary |
+| `cmd/push-api/` | Go Web Push relay (systemd unit **`letztes-bier-push`**, see [docs/PROXMOX.md](docs/PROXMOX.md)) |
+| `go.mod` / `go.sum` | Build dependency for **`letztes-bier-push`** |
 | `Makefile` | `make build` / `make run` / `make clean` / `make proxmox-ct` (Podman default) |
 | `docs/PROXMOX.md` | Proxmox vztmpl import, `PB_DOMAIN`, firewall, persistence |

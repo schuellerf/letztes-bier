@@ -1,0 +1,18 @@
+[Unit]
+Description=Letztes Bier Web Push relay (listen loopback; PocketBase hooks call this)
+After=networking.service
+Wants=networking.service
+
+[Service]
+EnvironmentFile=-/etc/default/letztes-bier-push
+Type=simple
+ExecStart=/usr/local/bin/letztes-bier-push
+StandardOutput=journal+console
+StandardError=journal+console
+Restart=on-failure
+RestartSec=3
+StartLimitBurst=5
+StartLimitIntervalSec=120
+
+[Install]
+WantedBy=multi-user.target

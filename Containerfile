@@ -7,6 +7,12 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
+FROM golang:1.22-bookworm AS push-api
+WORKDIR /src
+COPY go.mod go.sum ./
+COPY cmd/push-api ./cmd/push-api
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /letztes-bier-push ./cmd/push-api
+
 # Appliance rootfs for Proxmox vztmpl: Debian + systemd + DHCP on eth0 (ifupdown + dhclient).
 FROM debian:bookworm
 ENV DEBIAN_FRONTEND=noninteractive
@@ -33,6 +39,10 @@ RUN dbus-uuidgen --ensure=/etc/machine-id \
 COPY packaging/network.interfaces /etc/network/interfaces
 COPY packaging/letztes-bier.service /etc/systemd/system/letztes-bier.service
 COPY packaging/letztes-bier.default /etc/default/letztes-bier
+COPY packaging/letztes-bier-push.service /etc/systemd/system/letztes-bier-push.service
+COPY packaging/letztes-bier-push.default /etc/default/letztes-bier-push
+COPY --from=push-api /letztes-bier-push /usr/local/bin/letztes-bier-push
+RUN chmod +x /usr/local/bin/letztes-bier-push
 # Optional at build: `make build PB_DOMAIN=host.example.com` (or export PB_DOMAIN) bakes LXC autocert hostname into /etc/default/letztes-bier.
 ARG PB_DOMAIN=
 RUN if [ -n "$PB_DOMAIN" ]; then \
@@ -60,7 +70,9 @@ COPY pb_hooks ./pb_hooks
 RUN ln -sf /lib/systemd/system/networking.service \
 	/etc/systemd/system/multi-user.target.wants/networking.service \
 	&& ln -sf /etc/systemd/system/letztes-bier.service \
-	/etc/systemd/system/multi-user.target.wants/letztes-bier.service
+	/etc/systemd/system/multi-user.target.wants/letztes-bier.service \
+	&& ln -sf /etc/systemd/system/letztes-bier-push.service \
+	/etc/systemd/system/multi-user.target.wants/letztes-bier-push.service
 
 ENV PB_DATA_DIR=/pb/pb_data
 VOLUME ["/pb/pb_data"]

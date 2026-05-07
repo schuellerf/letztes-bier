@@ -8,6 +8,7 @@ web/dist/
 .playwright-mcp/
 web/node_modules/
 dist/
+/letztes-bier-push
 # Env / secrets (keep example tracked)
 web/.env
 web/.env.*
@@ -27,3 +28,4 @@ Thumbs.db
 
 # IDE (uncomment .vscode if you never commit workspace settings)
 .idea/
+cmd

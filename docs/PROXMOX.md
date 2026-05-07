@@ -69,6 +69,34 @@ curl -sS -I "http://YOUR_PUBLIC_DOMAIN/" | head -5
 
 You should at least see **PocketBase** answering on **:80** (often a redirect to **https://**).
 
+### Web Push relay (`letztes-bier-push`)
+
+The image ships **`letztes-bier-push`**: a small **HTTP** relay on **`127.0.0.1:8787`** (default) that sends **Web Push** notifications using **VAPID**. The systemd unit is **enabled for multi-user.target** (starts with the CT). Fill **`/etc/default/letztes-bier-push`** before or right after first boot; if required variables are empty, the service **exits** and systemd retries a few times then stops (**`systemctl reset-failed`** after you fix the file, then **`systemctl start letztes-bier-push`**).
+
+1. Edit **`/etc/default/letztes-bier-push`**: set **`PUSH_INTERNAL_TOKEN`** (long random string), **`VAPID_PUBLIC_KEY`** / **`VAPID_PRIVATE_KEY`** (e.g. `npx web-push generate-vapid-keys`), and **`VAPID_SUBSCRIBER`** (a `mailto:` contact for push providers).
+2. If it was already failing: **`systemctl reset-failed letztes-bier-push.service`** and **`systemctl restart letztes-bier-push.service`** (first boot with a filled file needs no manual enable).
+
+3. Logs: **`journalctl -u letztes-bier-push.service -f`**.
+
+**HTTP API** (from the same CT only, unless you change `PUSH_LISTEN`):
+
+- **`GET /healthz`** → `200 ok` (no auth).
+- **`POST /v1/push`** → body JSON:
+
+  ```json
+  {
+    "endpoint": "https://fcm.googleapis.com/… or mozilla endpoint",
+    "keys": { "p256dh": "…", "auth": "…" },
+    "payload": "{\"title\":\"Hi\"}"
+  }
+  ```
+
+  Header **`Authorization: Bearer <PUSH_INTERNAL_TOKEN>`** or **`X-Internal-Token: <PUSH_INTERNAL_TOKEN>`**.
+
+Because it listens on **loopback**, the WAN firewall does not need an extra port; PocketBase **`pb_hooks`** can **`$http.send`** to **`http://127.0.0.1:8787/v1/push`**. The SPA must still **subscribe** via the browser Push API and store subscription JSON—this relay only sends to an existing subscription.
+
+**Local dev:** build the binary with **`go build -o letztes-bier-push ./cmd/push-api`** and run with the same env vars (not started by **`make run`**).
+
 ## Build a vztmpl tarball
 
 On a Linux host with Podman or Docker:

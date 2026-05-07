@@ -1,0 +1,13 @@
+# Web Push relay — enabled by default with systemd; fill all secrets before production.
+# If the service hits start limits after empty values, run:
+#   systemctl reset-failed letztes-bier-push && systemctl start letztes-bier-push
+#
+# Generate VAPID keys (example): npx --yes web-push generate-vapid-keys
+# Or use any tool that outputs URL-safe base64 public + private keys.
+#
+# PUSH_LISTEN binds HTTP only on loopback unless you change it (not recommended).
+PUSH_LISTEN=127.0.0.1:8787
+PUSH_INTERNAL_TOKEN=
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBSCRIBER=mailto:ops@example.com
