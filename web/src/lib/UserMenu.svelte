@@ -118,7 +118,7 @@
 		</button>
 		{#if open}
 			<div
-				class="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,20rem)] rounded-xl border border-zinc-600 bg-zinc-900 p-4 shadow-xl"
+				class="absolute left-0 right-auto z-50 mt-2 w-[min(100vw-2rem,20rem)] rounded-xl border border-zinc-600 bg-zinc-900 p-4 shadow-xl md:left-auto md:right-0"
 			>
 				<label class="mb-1 block text-sm font-medium text-zinc-400" for="um-email">E-Mail</label>
 				<input

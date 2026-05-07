@@ -53,6 +53,14 @@
 	const barExpand = $derived(record?.expand?.bar as { name?: string } | undefined);
 	const barDisplayName = $derived(barExpand?.name ?? 'Your bar');
 	const openRequests = $derived(requests.filter((r) => r.status !== 'done'));
+	const openRequestsSorted = $derived(
+		[...openRequests].sort((a, b) => {
+			const ta = parseRequestTimestamp(a)?.getTime() ?? 0;
+			const tb = parseRequestTimestamp(b)?.getTime() ?? 0;
+			if (tb !== ta) return tb - ta;
+			return b.id.localeCompare(a.id);
+		})
+	);
 	const doneRequests = $derived(requests.filter((r) => r.status === 'done'));
 	const doneRequestsSorted = $derived(
 		[...doneRequests].sort((a, b) => {
@@ -379,8 +387,6 @@
 	});
 </script>
 
-<h1 class="mb-2 text-3xl font-bold text-amber-300">Bar</h1>
-
 {#if joinMismatch}
 	<div
 		class="mb-4 max-w-md rounded-lg border border-amber-700 bg-amber-950/50 p-4 text-amber-200"
@@ -391,6 +397,7 @@
 {/if}
 
 {#if !authValid || role !== 'bar'}
+	<h1 class="mb-2 text-3xl font-bold text-amber-300">Bar</h1>
 	{#if authValid && role !== 'bar'}
 		<WrongRoleHint expected="bar" current={role} />
 	{/if}
@@ -427,9 +434,10 @@
 		</button>
 	</form>
 {:else}
-	<div class="mb-4">
-		<p class="text-xl text-zinc-300">{barDisplayName}</p>
-	</div>
+	<h1 class="mb-4 flex flex-wrap items-baseline gap-x-3">
+		<span class="text-3xl font-bold text-amber-300">Bar</span>
+		<span class="text-xl text-zinc-300">"{barDisplayName}"</span>
+	</h1>
 
 	{#if listError}
 		<div
@@ -544,7 +552,7 @@
 	<section>
 		<h2 class="mb-3 text-2xl font-semibold text-zinc-200">Your recent requests</h2>
 		<ul class="space-y-3">
-			{#each openRequests as r}
+			{#each openRequestsSorted as r}
 				<li class="rounded-xl border border-zinc-700 bg-zinc-900/30 p-4">
 					<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
 						<div class="flex flex-wrap items-center gap-2">
@@ -560,7 +568,7 @@
 									>Hub: {r.storage_name}</span
 								>
 							{/if}
-							{#if r.status === 'pending'}
+							{#if r.status === 'pending' || r.status === 'accepted'}
 								<button
 									type="button"
 									disabled={notifyCooldownIds.has(r.id)}
@@ -591,7 +599,7 @@
 					<p class="text-lg text-zinc-200">{summarizeItems(r.items, 200)}</p>
 				</li>
 			{/each}
-			{#if openRequests.length === 0 && doneRequestsSorted.length === 0}
+			{#if openRequestsSorted.length === 0 && doneRequestsSorted.length === 0}
 				<li class="text-zinc-500">No requests yet.</li>
 			{/if}
 		</ul>
