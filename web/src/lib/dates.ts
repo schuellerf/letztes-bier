@@ -5,6 +5,11 @@ function truncateIsoFractionalSeconds(s: string): string {
 	return s.replace(/(\.\d{3})\d+(?=Z|[+-]\d|$)/i, '$1');
 }
 
+/** `2026-05-07T10:00:00.000 +00:00` is Invalid Date — the offset must be adjacent to the time in JS. */
+function collapseSpaceBeforeZone(s: string): string {
+	return s.replace(/\s+(?=[+-]\d)/g, '').replace(/\s+Z\b/gi, 'Z');
+}
+
 /** Normalize PocketBase datetime strings (often `YYYY-MM-DD HH:mm:ss...`) for `Date`. */
 export function parsePbDate(value: string | number | Date | undefined | null): Date | null {
 	if (value == null) return null;
@@ -30,9 +35,11 @@ export function parsePbDate(value: string | number | Date | undefined | null): D
 		s = s.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
 	}
 	s = truncateIsoFractionalSeconds(s);
+	s = collapseSpaceBeforeZone(s);
 	let d = new Date(s);
 	if (Number.isNaN(d.getTime()) && !t.includes('T')) {
 		s = truncateIsoFractionalSeconds(t.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T'));
+		s = collapseSpaceBeforeZone(s);
 		d = new Date(s);
 	}
 	if (!Number.isNaN(d.getTime())) return d;
@@ -63,11 +70,10 @@ export function formatPbDateTime(value: string | number | Date | undefined | nul
 	return d ? d.toLocaleString() : '—';
 }
 
-/** Prefer system `created`, then `updated` if the API omitted or stripped `created`. */
 const warnedUnparsedRequestIds = new Set<string>();
 
 export function parseRequestTimestamp(r: StockRequestRecord): Date | null {
-	const d = parsePbDate(r.created) ?? parsePbDate(r.updated);
+	const d = parsePbDate(r.requested_at);
 	if (
 		import.meta.env.DEV &&
 		import.meta.env.MODE !== 'test' &&
@@ -77,14 +83,8 @@ export function parseRequestTimestamp(r: StockRequestRecord): Date | null {
 	) {
 		warnedUnparsedRequestIds.add(r.id);
 		console.warn(
-			'[letztes-bier] Requested time unparsed (shows "— ago"). Compare with Network → requests list JSON for this id.',
-			{
-				id: r.id,
-				created: r.created,
-				createdType: typeof r.created,
-				updated: r.updated,
-				updatedType: typeof r.updated
-			}
+			'[letztes-bier] requested_at unparsed (shows "— ago"). Check requests list JSON for this id.',
+			{ id: r.id, requested_at: r.requested_at, requested_atType: typeof r.requested_at }
 		);
 	}
 	return d;

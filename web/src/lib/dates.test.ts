@@ -30,8 +30,13 @@ describe('parsePbDate', () => {
 		expect(d).not.toBeNull();
 	});
 
-	it('parses space-separated without zone (local path)', () => {
-		const d = parsePbDate('2026-05-07 10:16:11');
+	it('parses ISO with space before numeric offset (SQLite / driver style)', () => {
+		expect(parsePbDate('2026-05-07T10:16:11.000 +00:00')).not.toBeNull();
+		expect(parsePbDate('2026-05-07 10:16:11.000 +02:00')).not.toBeNull();
+	});
+
+	it('parses trailing space before Z', () => {
+		const d = parsePbDate('2026-05-07T10:16:11.000 Z');
 		expect(d).not.toBeNull();
 	});
 
@@ -43,11 +48,10 @@ describe('parsePbDate', () => {
 });
 
 describe('parseRequestTimestamp', () => {
-	it('uses created when valid', () => {
+	it('uses requested_at when valid', () => {
 		const r = mockRequest({
 			id: 'r1',
-			created: '2026-01-15T12:00:00.000Z',
-			updated: '2026-01-16T12:00:00.000Z'
+			requested_at: '2026-01-15T12:00:00.000Z'
 		});
 		const d = parseRequestTimestamp(r);
 		expect(d).not.toBeNull();
@@ -55,17 +59,8 @@ describe('parseRequestTimestamp', () => {
 		expect(d!.getUTCDate()).toBe(15);
 	});
 
-	it('falls back to updated when created missing', () => {
-		const r = mockRequest({
-			id: 'r2',
-			updated: '2026-02-20 08:30:00.000Z'
-		});
-		const d = parseRequestTimestamp(r);
-		expect(d).not.toBeNull();
-	});
-
-	it('returns null when both missing (UI shows — ago)', () => {
-		const r = mockRequest({ id: 'r3' });
+	it('returns null when requested_at missing', () => {
+		const r = mockRequest({ id: 'r2' });
 		expect(parseRequestTimestamp(r)).toBeNull();
 	});
 });

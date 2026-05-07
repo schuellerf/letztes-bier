@@ -30,19 +30,19 @@ export function pb(): PocketBase {
 
 /** Ordered pending first (oldest first), then accepted (oldest first). */
 export function sortRequestsForStorage(list: StockRequestRecord[]): StockRequestRecord[] {
-	const pending = list.filter((r) => r.status === 'pending').sort(byCreatedAsc);
+	const pending = list.filter((r) => r.status === 'pending').sort(byRequestedAtAsc);
 	const accepted = list.filter((r) => r.status === 'accepted').sort(byAcceptedAsc);
 	const rest = list.filter((r) => r.status === 'done');
 	return [...pending, ...accepted, ...rest];
 }
 
-function byCreatedAsc(a: StockRequestRecord, b: StockRequestRecord) {
-	return (a.created || '').localeCompare(b.created || '');
+function byRequestedAtAsc(a: StockRequestRecord, b: StockRequestRecord) {
+	return (a.requested_at || '').localeCompare(b.requested_at || '');
 }
 
 function byAcceptedAsc(a: StockRequestRecord, b: StockRequestRecord) {
-	const ac = a.accepted_at || a.created || '';
-	const bc = b.accepted_at || b.created || '';
+	const ac = a.accepted_at || a.requested_at || '';
+	const bc = b.accepted_at || b.requested_at || '';
 	return ac.localeCompare(bc);
 }
 

@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { pb, COLLECTIONS, nowIso, sortRequestsForStorage, storageOpenRequestsFilter } from '$lib/pb_client';
+	import {
+		pb,
+		COLLECTIONS,
+		nowIso,
+		sortRequestsForStorage,
+		storageOpenRequestsFilter
+	} from '$lib/pb_client';
 	import { formatPbClientError, logPbError, pbErrorSuggestsOffline } from '$lib/pb_errors';
 	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
 	import { roleFromRecord } from '$lib/auth';
@@ -41,7 +47,7 @@
 				.collection(COLLECTIONS.requests)
 				.getFullList<StockRequestRecord>({
 					requestKey: null,
-					// Client reorders by `created`; server may reject sort=created.
+					// Client reorders by `requested_at`; server may reject sort on that field.
 					sort: 'id',
 					filter: storageOpenRequestsFilter(),
 					perPage: 500
@@ -229,7 +235,7 @@
 	{/if}
 
 	<section class="mb-10">
-		<h2 class="mb-3 text-2xl font-semibold text-amber-200">Pending (oldest first)</h2>
+		<h2 class="mb-3 text-2xl font-semibold text-amber-200">Pending</h2>
 		<ul class="space-y-4">
 			{#each pending as r}
 				<li class="rounded-2xl border-2 border-amber-700/60 bg-zinc-900/50 p-4">
@@ -237,9 +243,7 @@
 						<div>
 							<p
 								class="text-xs uppercase tracking-wide text-zinc-500"
-								title={formatPbDateTime(r.created) !== '—'
-									? formatPbDateTime(r.created)
-									: formatPbDateTime(r.updated)}
+								title={formatPbDateTime(r.requested_at)}
 							>
 								Requested {elapsedHhMmSsSince(parseRequestTimestamp(r), nowMs)} ago
 							</p>
@@ -271,7 +275,7 @@
 	</section>
 
 	<section>
-		<h2 class="mb-3 text-2xl font-semibold text-sky-200">Accepted (working on)</h2>
+		<h2 class="mb-3 text-2xl font-semibold text-sky-200">Accepted</h2>
 		<ul class="space-y-4">
 			{#each accepted as r}
 				<li class="rounded-2xl border-2 border-sky-800/60 bg-zinc-900/50 p-4">

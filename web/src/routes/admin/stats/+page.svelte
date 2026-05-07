@@ -72,7 +72,7 @@
 
 			for (const r of items) {
 				barCounts[r.bar_name] = (barCounts[r.bar_name] ?? 0) + 1;
-				const cDate = parsePbDate(r.created);
+				const cDate = parsePbDate(r.requested_at);
 				if (!cDate) continue;
 				const c = cDate.getTime();
 				const h = cDate.getHours();
@@ -209,7 +209,7 @@
 		</section>
 
 		<section>
-			<h2 class="mb-2 text-xl font-semibold text-zinc-200">Peak request hours (created, local TZ)</h2>
+			<h2 class="mb-2 text-xl font-semibold text-zinc-200">Peak request hours (requested_at, local TZ)</h2>
 			<p class="mb-2 text-zinc-500">Busiest hour: {peakIdx}:00 &ndash; {peakIdx + 1}:00</p>
 			<div class="flex h-40 items-end gap-1">
 				{#each peakHours as c, i}

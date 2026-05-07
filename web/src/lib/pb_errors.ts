@@ -58,7 +58,7 @@ function summarizeResponseData(data: Record<string, unknown> | null | undefined)
 
 function humanSummaryForStatus(status: number): string {
 	if (status === 400) {
-		return 'Invalid or unsupported API parameters (check sort/filter fields, or PocketBase Admin logs). This app lists by record id when sort on created is rejected by the server.';
+		return 'Invalid or unsupported API parameters (check sort/filter fields, or PocketBase Admin logs). This app lists by record id when sort on request time fields is rejected by the server.';
 	}
 	if (status === 403) return 'Not allowed for this account (API rules).';
 	if (status === 404) return 'Record or route not found.';

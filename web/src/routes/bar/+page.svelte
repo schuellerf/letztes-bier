@@ -73,7 +73,7 @@
 				.collection(COLLECTIONS.requests)
 				.getFullList<StockRequestRecord>({
 					requestKey: null,
-					// PB may reject sort on `created` for this schema; `id` order matches creation closely.
+					// PB may reject sort on `requested_at`; `id` order matches submission order closely.
 					sort: '-id',
 					filter: barRequestsFilter(bid),
 					perPage: 200
@@ -447,9 +447,7 @@
 						</div>
 						<span
 							class="cursor-default text-sm text-zinc-500"
-							title={formatPbDateTime(r.created) !== '—'
-								? formatPbDateTime(r.created)
-								: formatPbDateTime(r.updated)}
+							title={formatPbDateTime(r.requested_at)}
 						>
 							Requested {elapsedHhMmSsSince(parseRequestTimestamp(r), nowMs)} ago
 						</span>
