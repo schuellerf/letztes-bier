@@ -1,7 +1,7 @@
 # Container image + local run (Podman by default; override ENGINE=docker if needed).
 ENGINE ?= podman
 IMAGE ?= letztes-bier:local
-PORT ?= 8090
+PORT ?= 8888
 CONTAINERFILE ?= Containerfile
 
 ifeq ($(ENGINE),podman)

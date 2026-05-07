@@ -265,8 +265,6 @@
 	);
 </script>
 
-<h1 class="mb-2 text-3xl font-bold text-amber-300">Lager</h1>
-
 {#if joinMismatch}
 	<div class="mb-4 rounded-lg border border-amber-700 bg-amber-950/50 p-4 text-amber-200">
 		Your account is not linked to this device&rsquo;s storage join link. Use the link your admin sent, or
@@ -275,6 +273,7 @@
 {/if}
 
 {#if !authValid || role !== 'storage'}
+	<h1 class="mb-2 text-3xl font-bold text-amber-300">Lager</h1>
 	{#if authValid && role !== 'storage'}
 		<WrongRoleHint expected="storage" current={role} />
 	{/if}
@@ -311,7 +310,10 @@
 		</button>
 	</form>
 {:else}
-	<p class="mb-4 text-xl text-zinc-300">{hubDisplayName}</p>
+	<h1 class="mb-4 flex flex-wrap items-baseline gap-x-3">
+		<span class="text-3xl font-bold text-amber-300">Lager</span>
+		<span class="text-xl text-zinc-300">"{hubDisplayName}"</span>
+	</h1>
 
 	{#if listError}
 		<div

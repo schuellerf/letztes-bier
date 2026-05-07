@@ -82,7 +82,7 @@ migrate(
 
 		// PocketBase treats 0 as blank for required number fields in migrations; use set() + min 1.
 		const main = new Record(storages);
-		main.set('name', 'Main');
+		main.set('name', 'Hauptlager');
 		main.set('hub_order', 1);
 		main.set('quick_items', presetLabels);
 		app.save(main);

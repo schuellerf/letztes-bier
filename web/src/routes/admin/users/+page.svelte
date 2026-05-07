@@ -7,6 +7,98 @@
 	import { roleFromRecord } from '$lib/auth';
 	import type { RecordModel } from 'pocketbase';
 
+	type LinkOriginOption = { value: string; label: string };
+
+	function isLanCandidateIpv4(ip: string): boolean {
+		const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
+		if (!m) return false;
+		const oct = [m[1], m[2], m[3], m[4]].map((s) => Number(s));
+		if (oct.some((n) => n > 255)) return false;
+		const [a, b] = oct;
+		if (a === 127) return false;
+		if (a === 10) return true;
+		if (a === 172 && b >= 16 && b <= 31) return true;
+		if (a === 192 && b === 168) return true;
+		if (a === 169 && b === 254) return true;
+		return false;
+	}
+
+	function seedOriginStrings(loc: Location): string[] {
+		const seen = new Set<string>();
+		const ordered: string[] = [];
+		function add(o: string) {
+			if (!seen.has(o)) {
+				seen.add(o);
+				ordered.push(o);
+			}
+		}
+		add(loc.origin);
+		const portPart = loc.port ? `:${loc.port}` : '';
+		if (loc.hostname === 'localhost') {
+			add(`${loc.protocol}//127.0.0.1${portPart}`);
+		} else if (loc.hostname === '127.0.0.1') {
+			add(`${loc.protocol}//localhost${portPart}`);
+		}
+		return ordered;
+	}
+
+	function optionsFromOrigins(origins: string[]): LinkOriginOption[] {
+		return origins.map((value, i) => {
+			let label: string;
+			try {
+				const host = new URL(value).host;
+				label = i === 0 ? `This page — ${host}` : host;
+			} catch {
+				label = value;
+			}
+			return { value, label };
+		});
+	}
+
+	function discoverLanIpv4s(timeoutMs: number): Promise<string[]> {
+		return new Promise((resolve) => {
+			const ips = new Set<string>();
+			let settled = false;
+			const RTCP = globalThis.RTCPeerConnection;
+			if (!RTCP) {
+				resolve([]);
+				return;
+			}
+			let pc: RTCPeerConnection;
+			try {
+				pc = new RTCP({ iceServers: [] });
+			} catch {
+				resolve([]);
+				return;
+			}
+			const finish = () => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
+				try {
+					pc.close();
+				} catch {
+					/* ignore */
+				}
+				resolve([...ips]);
+			};
+			const timer = setTimeout(finish, timeoutMs);
+			pc.onicecandidate = (ev) => {
+				if (ev.candidate?.candidate) {
+					const m = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(ev.candidate.candidate);
+					if (m && isLanCandidateIpv4(m[1])) ips.add(m[1]);
+				} else {
+					finish();
+				}
+			};
+			pc.createDataChannel('q');
+			void pc
+				.createOffer()
+				.then((offer) => pc.setLocalDescription(offer))
+				.catch(() => finish());
+		});
+	}
+
 	let email = $state('');
 	let password = $state('');
 	let err = $state('');
@@ -26,6 +118,41 @@
 	let generatedUrl = $state('');
 	let qrSrc = $state('');
 	let copyDone = $state(false);
+
+	let linkBaseOrigin = $state('');
+	let linkOriginOptions = $state<LinkOriginOption[]>([]);
+
+	function refreshLinkOriginOptions() {
+		const loc = window.location;
+		const ordered = seedOriginStrings(loc);
+		const seen = new Set(ordered);
+		linkOriginOptions = optionsFromOrigins(ordered);
+		if (!linkBaseOrigin || !seen.has(linkBaseOrigin)) {
+			linkBaseOrigin = loc.origin;
+		}
+		void discoverLanIpv4s(2000).then((discovered) => {
+			const locNow = window.location;
+			const portSuffix = locNow.port ? `:${locNow.port}` : '';
+			const existing = new Set(linkOriginOptions.map((o) => o.value));
+			let next = [...linkOriginOptions];
+			let changed = false;
+			for (const ip of discovered) {
+				const o = `${locNow.protocol}//${ip}${portSuffix}`;
+				if (!existing.has(o)) {
+					existing.add(o);
+					let label: string;
+					try {
+						label = `${new URL(o).host} (detected LAN)`;
+					} catch {
+						label = `${o} (detected LAN)`;
+					}
+					next = [...next, { value: o, label }];
+					changed = true;
+				}
+			}
+			if (changed) linkOriginOptions = next;
+		});
+	}
 
 	function syncAuth() {
 		authValid = pb().authStore.isValid;
@@ -109,7 +236,27 @@
 			qrSrc = '';
 			return;
 		}
-		const u = new URL('/quick-login', window.location.origin);
+		let base = linkBaseOrigin.trim();
+		if (!base) {
+			base = typeof window !== 'undefined' ? window.location.origin : '';
+		}
+		let originBase: string;
+		try {
+			const parsed = new URL(base);
+			if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+				linkGenErr = 'URL base must be http or https.';
+				generatedUrl = '';
+				qrSrc = '';
+				return;
+			}
+			originBase = parsed.origin;
+		} catch {
+			linkGenErr = 'Invalid URL base.';
+			generatedUrl = '';
+			qrSrc = '';
+			return;
+		}
+		const u = new URL('/quick-login', originBase);
 		u.searchParams.set('email', em);
 		u.searchParams.set('password', linkPassword);
 		generatedUrl = u.toString();
@@ -145,6 +292,7 @@
 	}
 
 	onMount(() => {
+		refreshLinkOriginOptions();
 		syncAuth();
 		const off = pb().authStore.onChange(() => syncAuth(), true);
 		void pb()
@@ -256,6 +404,24 @@
 					autocomplete="off"
 					bind:value={linkPassword}
 				/>
+				<label class="mb-1 block text-sm text-zinc-400" for="link-origin-select">Open app at (for link & QR)</label>
+				{#if linkOriginOptions.length > 0}
+					<select
+						id="link-origin-select"
+						class="mb-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-lg text-zinc-100"
+						bind:value={linkBaseOrigin}
+					>
+						{#each linkOriginOptions as opt (opt.value)}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
+				{:else}
+					<p class="mb-1 text-sm text-zinc-500">Resolving reachable hosts…</p>
+				{/if}
+				<p class="mb-3 text-xs text-zinc-500">
+					Hosts match how this device reaches the app; phones on the same network usually need your LAN IP
+					or hostname. Extra addresses may appear after a short detection pass.
+				</p>
 				<button
 					type="button"
 					class="mb-4 rounded-lg bg-sky-600 px-4 py-2 font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
