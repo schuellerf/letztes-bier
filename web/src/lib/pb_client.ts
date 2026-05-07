@@ -65,12 +65,14 @@ export function storageOpenRequestsFilter(storageId: string): string {
 	);
 }
 
-/** Hub with lowest `sort` (then `id`); custom bar items route here. */
+/** Hub with lowest `hub_order` (then `id`); custom bar items route here. */
 export function defaultStorageId(storages: RecordModel[]): string | null {
 	if (storages.length === 0) return null;
 	const sorted = [...storages].sort((a, b) => {
-		const sa = typeof a.sort === 'number' ? a.sort : Number(a.sort) || 0;
-		const sb = typeof b.sort === 'number' ? b.sort : Number(b.sort) || 0;
+		const ha = a as { hub_order?: number };
+		const hb = b as { hub_order?: number };
+		const sa = typeof ha.hub_order === 'number' ? ha.hub_order : Number(ha.hub_order) || 0;
+		const sb = typeof hb.hub_order === 'number' ? hb.hub_order : Number(hb.hub_order) || 0;
 		if (sa !== sb) return sa - sb;
 		return a.id.localeCompare(b.id);
 	});

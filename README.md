@@ -30,7 +30,7 @@ In the Admin UI, create `users` records with:
 
 Create **`bars`** records first (e.g. “Main Bar”, “VIP”), then bar accounts with `role = bar` and `bar` set to that record.
 
-Create **`storages`** records for each hub (e.g. “Main”, “Annex”). Set **`sort`** so the **lowest** number is the default hub (custom items on the bar go there). Seed migration creates **Main** at `sort = 0`. Each **`storage`** user must have **`storage`** set to their hub’s record.
+Create **`storages`** records for each hub (e.g. “Main”, “Annex”). Set **`hub_order`** so the **lowest** number is the default hub (custom items on the bar go there). Seed migration creates **Main** at `hub_order = 0`. Each **`storage`** user must have **`storage`** set to their hub’s record.
 
 ### Join links
 
@@ -50,6 +50,8 @@ mkdir -p pb_data
 (Install [PocketBase](https://pocketbase.io/docs/) v0.37+ locally, or use the container image via `make run`.)
 
 After the SPA is built once (`cd web && npm run build`), you can point `--publicDir` at `web/build`.
+
+Schema is applied from a **single** squashed file in `pb_migrations/`. If you ever had an older multi-step migration history in `./pb_data`, delete that directory (or reset the DB) so PocketBase runs the initial migration on a clean database.
 
 Terminal 2 — Vite dev server (proxies `/api` to PocketBase):
 

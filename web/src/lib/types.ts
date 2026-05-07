@@ -25,6 +25,6 @@ export type StockRequestRecord = RecordModel & {
 /** `storages` collection row (hub + quick_items JSON). */
 export type StorageHubRecord = RecordModel & {
 	name: string;
-	sort: number;
+	hub_order: number;
 	quick_items?: unknown;
 };

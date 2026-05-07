@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * App `storage` role may only edit `quick_items` on their hub; `name` and `sort` stay admin-controlled.
+ * App `storage` role may only edit `quick_items` on their hub; `name` and `hub_order` stay admin-controlled.
  */
 onRecordUpdateRequest(
 	(e) => {
@@ -21,7 +21,7 @@ onRecordUpdateRequest(
 		}
 		const orig = rec.original();
 		rec.set('name', orig.getString('name'));
-		rec.set('sort', orig.getFloat('sort'));
+		rec.set('hub_order', orig.getInt('hub_order'));
 		e.next();
 	},
 	'storages'

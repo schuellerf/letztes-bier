@@ -100,7 +100,7 @@
 				.collection(COLLECTIONS.storages)
 				.getFullList<StorageHubRecord>({
 					requestKey: null,
-					sort: 'sort,id',
+					sort: 'hub_order,id',
 					perPage: 200
 				});
 			storagesList = list;
@@ -419,7 +419,7 @@
 			</div>
 		{/if}
 		<p class="mb-3 text-sm text-zinc-500">
-			Quick picks come from all storage hubs. Custom items go to the hub with the lowest sort order
+			Quick picks come from all storage hubs. Custom items go to the hub with the lowest hub order
 			(default).
 		</p>
 		<div class="mb-3 flex flex-wrap gap-2">

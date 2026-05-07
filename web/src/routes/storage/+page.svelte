@@ -455,7 +455,7 @@
 		<h2 class="mb-2 text-xl font-semibold text-zinc-200">Settings</h2>
 		<p class="mb-4 text-sm text-zinc-500">
 			One label per line. These lines appear as quick-add buttons on bar devices (together with other hubs).
-			Hub name and sort order are managed in the admin dashboard.
+			Hub name and hub order are managed in the admin dashboard.
 		</p>
 		{#if settingsErr}
 			<p class="mb-2 text-sm text-red-300">{settingsErr}</p>
