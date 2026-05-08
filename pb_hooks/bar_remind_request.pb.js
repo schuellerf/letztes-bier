@@ -78,6 +78,9 @@ routerAdd(
 				storageHub: rec.getString('storage')
 			});
 
+			// Snapshot JSON `items` before save — after save() the in-memory record may not keep a usable items value.
+			var itemsSnapshot = rec.get('items');
+
 			try {
 				rec.set('reminded_at', new Date().toISOString());
 				e.app.save(rec);
@@ -90,7 +93,7 @@ routerAdd(
 				throw e.internalServerError('Failed to record reminder', {});
 			}
 
-			n.pushPendingRequestNotifyStorage(e.app, rec, { reminder: true });
+			n.pushPendingRequestNotifyStorage(e.app, rec, { reminder: true, items: itemsSnapshot });
 
 			dbg.pushNotifyDebugLog('bar_remind_response', {
 				requestId: rid,

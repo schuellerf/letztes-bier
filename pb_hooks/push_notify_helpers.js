@@ -145,13 +145,34 @@ function fitWebPushPayloadObj(obj) {
 	return squeezePushPayload(o, max);
 }
 
-/** JSON field from PocketBase may be a string or non-array in hooks. */
+/** JSON field from PocketBase may be a string, UTF-8 bytes, or non-array in hooks. */
 function coerceItemsArray(raw) {
 	if (Array.isArray(raw)) return raw;
 	if (raw != null && typeof raw === 'string') {
 		try {
 			var p = JSON.parse(raw);
 			return Array.isArray(p) ? p : [];
+		} catch (_) {
+			return [];
+		}
+	}
+	if (raw != null && typeof raw === 'object' && typeof raw.byteLength === 'number' && raw.byteLength > 0) {
+		try {
+			var buf = raw;
+			if (buf instanceof ArrayBuffer) {
+				buf = new Uint8Array(buf);
+			}
+			var dec = '';
+			if (typeof TextDecoder !== 'undefined') {
+				dec = new TextDecoder('utf-8').decode(buf);
+			} else {
+				var blen = buf.length != null ? buf.length : buf.byteLength;
+				for (var bi = 0; bi < blen; bi++) {
+					dec += String.fromCharCode(buf[bi] & 255);
+				}
+			}
+			var pb = JSON.parse(dec);
+			return Array.isArray(pb) ? pb : [];
 		} catch (_) {
 			return [];
 		}
@@ -421,7 +442,8 @@ function pushPendingRequestNotifyStorage(app, rec, opts) {
 	var barNick = rec.getString('bar_device_nickname');
 	var baseTitle = storageNotifyTitle(barName, barNick);
 	var title = reminder ? 'Erinnerung · ' + baseTitle : baseTitle;
-	var body = itemsAsNotificationBody(rec.get('items'), PUSH_ITEMS_BODY_MAX_CHARS);
+	var itemsRaw = opts.items != null ? opts.items : rec.get('items');
+	var body = itemsAsNotificationBody(itemsRaw, PUSH_ITEMS_BODY_MAX_CHARS);
 	var payload = {
 		title: title,
 		body: body || undefined,
