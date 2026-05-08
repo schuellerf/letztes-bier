@@ -7,3 +7,6 @@ PB_DOMAIN=
 # Same value as PUSH_INTERNAL_TOKEN in /etc/default/letztes-bier-push so pb_hooks can POST to the loopback push relay.
 # Do not commit real secrets; set on the appliance after deploy.
 # PUSH_INTERNAL_TOKEN=
+#
+# Erinnern / Web Push trace (PocketBase logs): set to 1 briefly, then restart letztes-bier.service
+# PUSH_NOTIFY_DEBUG=1

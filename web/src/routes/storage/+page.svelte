@@ -44,6 +44,10 @@
 	let settingsErr = $state('');
 	let settingsOk = $state(false);
 
+	/** In-app line when SW delivers a push while this tab is foreground (no duplicate OS toast). */
+	let pushBanner = $state('');
+	let pushBannerClear: ReturnType<typeof setTimeout> | null = null;
+
 	const role = $derived(roleFromRecord(record));
 	const hubExpand = $derived(record?.expand?.storage as { name?: string } | undefined);
 	const hubDisplayName = $derived(hubExpand?.name ?? 'Your hub');
@@ -185,6 +189,19 @@
 		}
 	}
 
+	function flashPushBanner(payload: { title?: string; url?: string }) {
+		const url = typeof payload.url === 'string' ? payload.url : '';
+		if (!url.startsWith('/storage')) return;
+		void refreshList();
+		const t = (payload.title && String(payload.title).trim()) || 'Nachricht';
+		pushBanner = t;
+		if (pushBannerClear) clearTimeout(pushBannerClear);
+		pushBannerClear = setTimeout(() => {
+			pushBanner = '';
+			pushBannerClear = null;
+		}, 5000);
+	}
+
 	async function bindRealtime() {
 		if (unsub) {
 			unsub();
@@ -215,6 +232,15 @@
 		const clock = setInterval(() => {
 			nowMs = Date.now();
 		}, 1000);
+
+		const onSwMessage = (ev: MessageEvent) => {
+			const d = ev.data as { type?: string; payload?: { title?: string; url?: string } };
+			if (!d || d.type !== 'letztes-bier-push' || !d.payload) return;
+			flashPushBanner(d.payload);
+		};
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.addEventListener('message', onSwMessage);
+		}
 
 		const removeCleanup = registerRealtimeCleanup(() => {
 			if (unsub) {
@@ -258,6 +284,10 @@
 
 		return () => {
 			clearInterval(clock);
+			if (pushBannerClear) clearTimeout(pushBannerClear);
+			if ('serviceWorker' in navigator) {
+				navigator.serviceWorker.removeEventListener('message', onSwMessage);
+			}
 			removeCleanup();
 			unsubAuth();
 			if (unsub) unsub();
@@ -332,6 +362,15 @@
 			role="alert"
 		>
 			{listError}
+		</div>
+	{/if}
+
+	{#if pushBanner}
+		<div
+			class="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-emerald-100"
+			role="status"
+		>
+			{pushBanner}
 		</div>
 	{/if}
 
@@ -473,6 +512,10 @@
 				{/each}
 			</ul>
 		</details>
+	{:else}
+	  <ul class="space-y-4">
+	    <li class="text-zinc-500">Noch nie etwas bestellt.</li>
+	  </ul>
 	{/if}
 
 	<details

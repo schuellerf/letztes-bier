@@ -13,15 +13,17 @@ async function showLocalNotification(
 	title: string,
 	body: string | undefined,
 	tag: string,
-	url: string
+	url: string,
+	opts?: { renotify?: boolean }
 ): Promise<void> {
 	if (!browser) return;
-	const options: NotificationOptions = {
+	const options = {
 		body,
 		tag,
 		data: { url },
-		silent: false
-	};
+		silent: false,
+		...(opts?.renotify ? { renotify: true } : {})
+	} as NotificationOptions;
 
 	if ('serviceWorker' in navigator) {
 		const reg = await navigator.serviceWorker.getRegistration();
@@ -69,13 +71,16 @@ function storageNotifyTitle(barName: string, barNick?: string): string {
 }
 
 /** Local confirmation after server accepted a push reminder to storage. */
-export function notifyRemindSentBar(): void {
+export function notifyRemindSentBar(requestId: string): void {
 	if (!browser || Notification.permission !== 'granted') return;
+	const uniq = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	const tag = `bar-remind-sent-${requestId}-${uniq}`;
 	void showLocalNotification(
 		'Erinnerung gesendet',
 		'Das Lager wurde per Push benachrichtigt.',
-		'bar-remind-sent',
-		'/bar'
+		tag,
+		'/bar',
+		{ renotify: true }
 	).catch(() => {});
 }
 

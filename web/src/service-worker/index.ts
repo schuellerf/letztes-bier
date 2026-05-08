@@ -19,6 +19,27 @@ function parsePushPayload(raw: string): PushPayload {
 	}
 }
 
+/** Path from push `url` (e.g. "/storage") for matching an open tab. */
+function targetPathname(pushUrl: string | undefined): string {
+	const raw = (pushUrl || '/').trim() || '/';
+	try {
+		return new URL(raw, self.location.origin).pathname;
+	} catch {
+		return '/';
+	}
+}
+
+function clientMatchesPushPath(clientUrl: string, path: string): boolean {
+	if (path === '/') return false;
+	let p: string;
+	try {
+		p = new URL(clientUrl).pathname;
+	} catch {
+		return false;
+	}
+	return p === path || p.startsWith(path + '/');
+}
+
 self.addEventListener('push', (event: PushEvent) => {
 	event.waitUntil(
 		(async () => {
@@ -31,11 +52,36 @@ self.addEventListener('push', (event: PushEvent) => {
 			}
 			const title = data.title?.trim() || 'Letztes Bier';
 			const tag = data.tag?.trim() || `letztes-bier-${version}`;
+			const notifyUrl = data.url || '/';
 			const options: NotificationOptions = {
 				body: data.body,
 				tag,
-				data: { url: data.url || '/' }
+				data: { url: notifyUrl }
 			};
+			const path = targetPathname(notifyUrl);
+			if (path !== '/') {
+				const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+				const origin = self.location.origin;
+				const visible = clients.filter(
+					(c): c is WindowClient =>
+						c.type === 'window' &&
+						'visibilityState' in c &&
+						c.visibilityState === 'visible' &&
+						c.url.startsWith(origin) &&
+						clientMatchesPushPath(c.url, path)
+				);
+				if (visible.length > 0) {
+					await Promise.all(
+						visible.map((c) =>
+							c.postMessage({
+								type: 'letztes-bier-push',
+								payload: { ...data }
+							})
+						)
+					);
+					return;
+				}
+			}
 			await self.registration.showNotification(title, options);
 		})()
 	);

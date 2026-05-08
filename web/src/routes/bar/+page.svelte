@@ -36,6 +36,10 @@
 	let listError = $state('');
 	let realtimeError = $state('');
 	let remindErr = $state('');
+	let remindOk = $state('');
+	/** In-app line when SW forwards a push because this /bar tab is foreground. */
+	let pushBanner = $state('');
+	let pushBannerClear: ReturnType<typeof setTimeout> | null = null;
 	let loading = $state(false);
 	let requests = $state<StockRequestRecord[]>([]);
 	let nowMs = $state(Date.now());
@@ -148,6 +152,19 @@
 		}
 	}
 
+	function flashPushBanner(payload: { title?: string; url?: string }) {
+		const url = typeof payload.url === 'string' ? payload.url : '';
+		if (!url.startsWith('/bar')) return;
+		void refreshList();
+		const t = (payload.title && String(payload.title).trim()) || 'Nachricht';
+		pushBanner = t;
+		if (pushBannerClear) clearTimeout(pushBannerClear);
+		pushBannerClear = setTimeout(() => {
+			pushBanner = '';
+			pushBannerClear = null;
+		}, 5000);
+	}
+
 	async function login(e: Event) {
 		e.preventDefault();
 		err = '';
@@ -239,7 +256,14 @@
 				body: JSON.stringify({ requestId: r.id }),
 				headers: { 'Content-Type': 'application/json' }
 			});
-			notifyRemindSentBar();
+			if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+				notifyRemindSentBar(r.id);
+			} else {
+				remindOk = 'Erinnerung gesendet — das Lager wurde per Push benachrichtigt.';
+				setTimeout(() => {
+					remindOk = '';
+				}, 3000);
+			}
 		} catch (e) {
 			logPbError('bar.remindRequest', e);
 			const rest = new Set(notifyCooldownIds);
@@ -370,6 +394,15 @@
 			nowMs = Date.now();
 		}, 1000);
 
+		const onSwMessage = (ev: MessageEvent) => {
+			const d = ev.data as { type?: string; payload?: { title?: string; url?: string } };
+			if (!d || d.type !== 'letztes-bier-push' || !d.payload) return;
+			flashPushBanner(d.payload);
+		};
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.addEventListener('message', onSwMessage);
+		}
+
 		let removeCleanup: (() => void) | undefined;
 		removeCleanup = registerRealtimeCleanup(() => {
 			if (unsubRequests) {
@@ -422,6 +455,10 @@
 
 		return () => {
 			clearInterval(clock);
+			if (pushBannerClear) clearTimeout(pushBannerClear);
+			if ('serviceWorker' in navigator) {
+				navigator.serviceWorker.removeEventListener('message', onSwMessage);
+			}
 			removeCleanup?.();
 			unsubAuth();
 			if (unsubRequests) unsubRequests();
@@ -488,6 +525,15 @@
 			role="alert"
 		>
 			{listError}
+		</div>
+	{/if}
+
+	{#if pushBanner}
+		<div
+			class="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-emerald-100"
+			role="status"
+		>
+			{pushBanner}
 		</div>
 	{/if}
 
@@ -621,6 +667,9 @@
 
 	<section>
 		<h2 class="mb-3 text-2xl font-semibold text-zinc-200">Deine Anfragen</h2>
+		{#if remindOk}
+			<p class="mb-2 text-emerald-400">{remindOk}</p>
+		{/if}
 		{#if remindErr}
 			<p class="mb-2 text-red-400">{remindErr}</p>
 		{/if}
@@ -675,7 +724,7 @@
 				<li class="text-zinc-500">Im Moment keine Anfragen.</li>
 			{/each}
 			{#if openRequestsSorted.length === 0 && doneRequestsSorted.length === 0}
-				<li class="text-zinc-500">No requests yet.</li>
+				<li class="text-zinc-500">Noch nie etwas bestellt.</li>
 			{/if}
 		</ul>
 
