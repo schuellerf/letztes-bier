@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { pb, COLLECTIONS } from '$lib/pb_client';
 	import { formatPbClientError, logPbError } from '$lib/pb_errors';
+	import { registerRealtimeCleanup } from '$lib/logout_hooks';
 	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
 	import { roleFromRecord } from '$lib/auth';
 	import { parsePbDate } from '$lib/dates';
@@ -26,6 +27,21 @@
 
 	let durationsPickMin = $state<number[]>([]);
 	let durationsTotal = $state<number[]>([]);
+
+	let unsubRequests: (() => void) | null = null;
+	let unsubBars: (() => void) | null = null;
+	let realtimeError = $state('');
+
+	function teardownRealtime() {
+		if (unsubRequests) {
+			unsubRequests();
+			unsubRequests = null;
+		}
+		if (unsubBars) {
+			unsubBars();
+			unsubBars = null;
+		}
+	}
 
 	function syncAuth() {
 		authValid = pb().authStore.isValid;
@@ -133,9 +149,9 @@
 		}
 	}
 
-	async function loadStats() {
+	async function reloadStatsFromServer(opts: { resetFilters: boolean }) {
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'admin') return;
-		err = '';
+		if (opts.resetFilters) err = '';
 		try {
 			const [items, barList] = await Promise.all([
 				pb()
@@ -148,8 +164,10 @@
 
 			rawRequests = items;
 			bars = barList;
-			selectedBarId = '';
-			selectedItemLabel = '';
+			if (opts.resetFilters) {
+				selectedBarId = '';
+				selectedItemLabel = '';
+			}
 
 			const pickMs: number[] = [];
 			const totalMs: number[] = [];
@@ -175,15 +193,61 @@
 			durationsTotal = totalMs.map((ms) => ms / 60000);
 			loaded = true;
 		} catch (e) {
-			logPbError('admin.loadStats', e);
-			err = formatPbClientError(e);
-			loaded = false;
+			if (opts.resetFilters) {
+				logPbError('admin.loadStats', e);
+				err = formatPbClientError(e);
+				loaded = false;
+			} else {
+				logPbError('admin.stats.reloadRealtime', e);
+			}
+		}
+	}
+
+	async function loadStats() {
+		await reloadStatsFromServer({ resetFilters: true });
+		if (loaded) await bindStatsRealtime();
+	}
+
+	async function bindStatsRealtime() {
+		teardownRealtime();
+		realtimeError = '';
+		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'admin') return;
+		try {
+			unsubRequests = await pb()
+				.collection(COLLECTIONS.requests)
+				.subscribe<StockRequestRecord>('*', () => {
+					void reloadStatsFromServer({ resetFilters: false });
+				});
+			unsubBars = await pb()
+				.collection(COLLECTIONS.bars)
+				.subscribe<RecordModel>('*', async () => {
+					try {
+						const barList = await pb()
+							.collection(COLLECTIONS.bars)
+							.getFullList<RecordModel>({ requestKey: null, sort: 'name', perPage: 200 });
+						bars = barList;
+					} catch (e) {
+						logPbError('admin.stats.barsRealtime', e);
+					}
+				});
+		} catch (e) {
+			logPbError('admin.stats.subscribe', e);
+			realtimeError = formatPbClientError(e);
 		}
 	}
 
 	onMount(() => {
+		let removeCleanup: (() => void) | undefined;
+		removeCleanup = registerRealtimeCleanup(() => teardownRealtime());
+
 		syncAuth();
-		const off = pb().authStore.onChange(() => syncAuth(), true);
+		const off = pb().authStore.onChange(() => {
+			syncAuth();
+			if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'admin') {
+				teardownRealtime();
+				realtimeError = '';
+			}
+		}, true);
 		void pb()
 			.collection(COLLECTIONS.users)
 			.authRefresh()
@@ -195,7 +259,10 @@
 			})
 			.catch(() => {});
 
-		return () => off();
+		return () => {
+			removeCleanup?.();
+			off();
+		};
 	});
 </script>
 
@@ -250,6 +317,9 @@
 
 	{#if err}
 		<p class="mb-4 text-red-400" role="alert">{err}</p>
+	{/if}
+	{#if realtimeError}
+		<p class="mb-4 text-amber-500/90" role="status">Live updates unavailable: {realtimeError}</p>
 	{/if}
 
 	{#if loaded}
