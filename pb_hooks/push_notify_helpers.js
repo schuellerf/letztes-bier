@@ -8,11 +8,11 @@ var dbg = require(__hooks + '/push_notify_debug.js');
 
 var RELAY_PUSH_URL = 'http://127.0.0.1:8787/v1/push';
 
-/** Web Push application data limit (octets). Prefer a short notification that arrives over filling 4096. */
-var WEB_PUSH_MAX_PAYLOAD_BYTES = 3072;
+/** Must stay below relay webPushMaxPlainPayload (1800) for RecordSize 2048 — hooks shrink JSON to fit. */
+var WEB_PUSH_MAX_PAYLOAD_BYTES = 1800;
 
-/** Soft cap on item lines (chars) before JSON fitting — keeps bodies small by default. */
-var PUSH_ITEMS_BODY_MAX_CHARS = 900;
+/** Soft cap on item lines (chars) before JSON fitting — aligns with smaller push record. */
+var PUSH_ITEMS_BODY_MAX_CHARS = 500;
 
 function utf8ByteLength(str) {
 	if (!str) return 0;
