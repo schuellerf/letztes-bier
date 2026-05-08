@@ -7,8 +7,7 @@
 	(Accept &rarr; Done).
 </p>
 <p class="mb-6 text-lg leading-relaxed text-zinc-400">
-	Öffne den <strong class="text-zinc-100">Join-Link</strong> für die richtige Station, melde dich an, dann
-	nutze die großzügige Bar-Oberfläche. Das Lager arbeitet mit dem Storage-Dashboard.
+	Logins werden vom Admin vergeben.
 </p>
 <ul class="list-inside list-disc space-y-2 text-zinc-400">
 	<li><a class="text-amber-400 hover:underline" href="/bar">Bar</a></li>

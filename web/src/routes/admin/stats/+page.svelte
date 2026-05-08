@@ -162,10 +162,6 @@
 			{loading ? '…' : 'Sign in'}
 		</button>
 	</form>
-	<p class="mt-6 text-sm text-zinc-500">
-		OAuth (e.g. Google) can be enabled in PocketBase Admin; this screen uses email/password for staff
-		admins.
-	</p>
 {:else}
 	<div class="mb-4 flex flex-wrap items-center gap-4">
 		<button
