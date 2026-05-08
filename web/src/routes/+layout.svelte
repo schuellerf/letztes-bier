@@ -7,7 +7,7 @@
 	import { connection } from '$lib/connection.svelte';
 	import { homePathForRole, roleFromRecord } from '$lib/auth';
 	import UserMenu from '$lib/UserMenu.svelte';
-	import DisclosureChevron from '$lib/DisclosureChevron.svelte';
+	import ChevronDirection from '$lib/ChevronDirection.svelte';
 
 	let { children } = $props();
 
@@ -127,14 +127,14 @@
 			aria-label="Hauptnavigation"
 		>
 			{#if authValid}
-				<div class="flex w-full flex-wrap items-center gap-2">
+				<div class="flex w-full flex-wrap items-center justify-between gap-2">
 					<a
 						class="font-semibold text-amber-400 hover:text-amber-300"
 						href={titleHref}
 					>Letztes Bier</a>
 					<button
 						type="button"
-						class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+						class="flex min-h-11 min-w-11 shrink-0 touch-manipulation items-center justify-center border-0 bg-transparent p-1 text-zinc-200 hover:opacity-80"
 						aria-expanded={navDrawerOpen}
 						aria-controls="site-nav-drawer"
 						onclick={() => {
@@ -144,7 +144,7 @@
 						<span class="sr-only">
 							{navDrawerOpen ? 'Menü ausblenden' : 'Menü anzeigen'}
 						</span>
-						<DisclosureChevron open={navDrawerOpen} />
+						<ChevronDirection direction={navDrawerOpen ? 'down' : 'left'} />
 					</button>
 				</div>
 				{#if navDrawerOpen}
