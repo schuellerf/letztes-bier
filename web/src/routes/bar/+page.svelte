@@ -10,7 +10,7 @@
 	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
 	import { roleFromRecord, barIdFromRecord, relationIdFromField } from '$lib/auth';
 	import { getDeviceNickname } from '$lib/device_nickname';
-	import { notifyRequestAccepted, notifyPendingReminder } from '$lib/notifications';
+	import { notifyRequestAccepted, notifyRemindSentBar } from '$lib/notifications';
 	import { normalizeItems, parseQuickItems, summarizeItems } from '$lib/items';
 	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate, parseRequestTimestamp } from '$lib/dates';
 	import { registerRealtimeCleanup } from '$lib/logout_hooks';
@@ -35,6 +35,7 @@
 	let err = $state('');
 	let listError = $state('');
 	let realtimeError = $state('');
+	let remindErr = $state('');
 	let loading = $state(false);
 	let requests = $state<StockRequestRecord[]>([]);
 	let nowMs = $state(Date.now());
@@ -222,9 +223,8 @@
 		cart = next;
 	}
 
-	function triggerNotify(r: StockRequestRecord) {
+	async function triggerNotify(r: StockRequestRecord) {
 		if (notifyCooldownIds.has(r.id)) return;
-		notifyPendingReminder(r.id, r.bar_name, r.bar_device_nickname, r.items);
 		notifyCooldownIds = new Set(notifyCooldownIds).add(r.id);
 		const id = r.id;
 		setTimeout(() => {
@@ -232,6 +232,21 @@
 			rest.delete(id);
 			notifyCooldownIds = rest;
 		}, 10_000);
+		remindErr = '';
+		try {
+			await pb().send('/api/custom/bar/remind-request', {
+				method: 'POST',
+				body: JSON.stringify({ requestId: r.id }),
+				headers: { 'Content-Type': 'application/json' }
+			});
+			notifyRemindSentBar();
+		} catch (e) {
+			logPbError('bar.remindRequest', e);
+			const rest = new Set(notifyCooldownIds);
+			rest.delete(id);
+			notifyCooldownIds = rest;
+			remindErr = formatPbClientError(e);
+		}
 	}
 
 	function addCustom() {
@@ -606,6 +621,9 @@
 
 	<section>
 		<h2 class="mb-3 text-2xl font-semibold text-zinc-200">Deine Anfragen</h2>
+		{#if remindErr}
+			<p class="mb-2 text-red-400">{remindErr}</p>
+		{/if}
 		<ul class="space-y-3">
 			{#each openRequestsSorted as r}
 				<li class="rounded-xl border border-zinc-700 bg-zinc-900/30 p-4">

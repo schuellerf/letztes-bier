@@ -7,40 +7,7 @@
 onCollectionAfterCreateSuccess((e) => {
 	var n = require(__hooks + '/push_notify_helpers.js');
 	try {
-		var rec = e.record;
-		if (!rec) return;
-		if (rec.getString('status') !== 'pending') return;
-
-		var storageId = rec.getString('storage');
-		if (!storageId) return;
-
-		var staff;
-		try {
-			staff = e.app.findRecordsByFilter(
-				'users',
-				'role = "storage" && storage = {:sid}',
-				'',
-				500,
-				0,
-				{ sid: storageId }
-			);
-		} catch (err) {
-			console.warn('push_notify: find storage users:', err);
-			return;
-		}
-
-		var barName = rec.getString('bar_name');
-		var barNick = rec.getString('bar_device_nickname');
-		var title = n.storageNotifyTitle(barName, barNick);
-		var body = n.itemsAsNotificationBody(rec.get('items'));
-		var payload = {
-			title: title,
-			body: body || undefined,
-			url: '/storage',
-			tag: 'request-' + rec.id
-		};
-
-		n.pushForUserIds(e.app, n.collectUserIdsFromRecords(staff), payload);
+		n.pushPendingRequestNotifyStorage(e.app, e.record, { reminder: false });
 	} catch (err) {
 		console.warn('push_notify: on create:', err);
 	}

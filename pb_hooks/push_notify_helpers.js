@@ -140,10 +140,51 @@ function collectUserIdsFromRecords(records) {
 	return out;
 }
 
+/** Pending stock request → Web Push for storage staff on that hub. opts.reminder: bar "Erinnern" title/tag. */
+function pushPendingRequestNotifyStorage(app, rec, opts) {
+	opts = opts || {};
+	var reminder = !!opts.reminder;
+	if (!rec) return;
+	if (rec.getString('status') !== 'pending') return;
+
+	var storageId = rec.getString('storage');
+	if (!storageId) return;
+
+	var staff;
+	try {
+		staff = app.findRecordsByFilter(
+			'users',
+			'role = "storage" && storage = {:sid}',
+			'',
+			500,
+			0,
+			{ sid: storageId }
+		);
+	} catch (err) {
+		console.warn('push_notify: find storage users:', err);
+		return;
+	}
+
+	var barName = rec.getString('bar_name');
+	var barNick = rec.getString('bar_device_nickname');
+	var baseTitle = storageNotifyTitle(barName, barNick);
+	var title = reminder ? 'Erinnerung · ' + baseTitle : baseTitle;
+	var body = itemsAsNotificationBody(rec.get('items'));
+	var payload = {
+		title: title,
+		body: body || undefined,
+		url: '/storage',
+		tag: reminder ? 'remind-' + rec.id + '-' + String(Date.now()) : 'request-' + rec.id
+	};
+
+	pushForUserIds(app, collectUserIdsFromRecords(staff), payload);
+}
+
 module.exports = {
 	summarizeItems: summarizeItems,
 	itemsAsNotificationBody: itemsAsNotificationBody,
 	storageNotifyTitle: storageNotifyTitle,
 	pushForUserIds: pushForUserIds,
-	collectUserIdsFromRecords: collectUserIdsFromRecords
+	collectUserIdsFromRecords: collectUserIdsFromRecords,
+	pushPendingRequestNotifyStorage: pushPendingRequestNotifyStorage
 };

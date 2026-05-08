@@ -68,6 +68,17 @@ function storageNotifyTitle(barName: string, barNick?: string): string {
 	return nick ? `${barName} (${nick})` : barName;
 }
 
+/** Local confirmation after server accepted a push reminder to storage. */
+export function notifyRemindSentBar(): void {
+	if (!browser || Notification.permission !== 'granted') return;
+	void showLocalNotification(
+		'Erinnerung gesendet',
+		'Das Lager wurde per Push benachrichtigt.',
+		'bar-remind-sent',
+		'/bar'
+	).catch(() => {});
+}
+
 export function notifyNewPendingRequest(
 	recordId: string,
 	barName: string,
@@ -78,23 +89,6 @@ export function notifyNewPendingRequest(
 	const body = itemsAsNotificationBody(items);
 	void notifyOnce('storage-new', recordId, 'create', title, body || undefined, {
 		tag: `request-${recordId}`,
-		url: '/storage'
-	}).catch(() => {});
-}
-
-/** Manual repeat: new transition each time so it always shows. */
-export function notifyPendingReminder(
-	recordId: string,
-	barName: string,
-	barNick?: string,
-	items?: unknown
-) {
-	if (!browser || Notification.permission !== 'granted') return;
-	const title = storageNotifyTitle(barName, barNick);
-	const body = itemsAsNotificationBody(items);
-	const transition = `remind-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-	void notifyOnce('storage-new', recordId, transition, title, body || undefined, {
-		tag: `remind-${recordId}-${transition}`,
 		url: '/storage'
 	}).catch(() => {});
 }
