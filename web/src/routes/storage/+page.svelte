@@ -23,6 +23,7 @@
 	import DisclosureChevron from '$lib/DisclosureChevron.svelte';
 
 	const JOIN_STORAGE_KEY = 'letztesbier_join_storage';
+	const ADMIN_STORAGE_KEY = 'letztesbier_admin_storage';
 
 	type SwPushBannerPayload = { title?: string; body?: string; url?: string };
 
@@ -43,6 +44,10 @@
 	let settingsOpen = $state(false);
 	let joinMismatch = $state(false);
 
+	let storagesPickList = $state<StorageHubRecord[]>([]);
+	let storagesPickError = $state('');
+	let adminSelectedStorageId = $state('');
+
 	let settingsLines = $state('');
 	let settingsBusy = $state(false);
 	let settingsErr = $state('');
@@ -60,7 +65,11 @@
 
 	const role = $derived(roleFromRecord(record));
 	const hubExpand = $derived(record?.expand?.storage as { name?: string } | undefined);
-	const hubDisplayName = $derived(hubExpand?.name ?? 'Your hub');
+	const hubDisplayName = $derived(
+		role === 'admin'
+			? storagesPickList.find((s) => s.id === adminSelectedStorageId)?.name ?? 'Lager'
+			: (hubExpand?.name ?? 'Your hub')
+	);
 
 	function normalizeRemindedAt(v: unknown): string {
 		if (v == null) return '';
@@ -80,6 +89,42 @@
 		record = pb().authStore.record;
 	}
 
+	function storageDashboardRole(r: ReturnType<typeof roleFromRecord>): boolean {
+		return r === 'storage' || r === 'admin';
+	}
+
+	async function loadStoragesForAdmin() {
+		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'admin') return;
+		storagesPickError = '';
+		try {
+			const list = await pb()
+				.collection(COLLECTIONS.storages)
+				.getFullList<StorageHubRecord>({
+					requestKey: null,
+					sort: 'hub_order,id',
+					perPage: 200
+				});
+			storagesPickList = list;
+			const saved = sessionStorage.getItem(ADMIN_STORAGE_KEY);
+			const pick =
+				saved && list.some((s) => s.id === saved) ? saved : (list[0]?.id ?? '');
+			adminSelectedStorageId = pick;
+			if (pick) sessionStorage.setItem(ADMIN_STORAGE_KEY, pick);
+		} catch (e) {
+			logPbError('storage.loadStoragesForAdmin', e);
+			storagesPickError = formatPbClientError(e);
+			storagesPickList = [];
+			adminSelectedStorageId = '';
+		}
+	}
+
+	async function handleAdminStorageChange() {
+		sessionStorage.setItem(ADMIN_STORAGE_KEY, adminSelectedStorageId);
+		await bindRealtime();
+		await refreshList();
+		await loadSettingsDraft();
+	}
+
 	async function bootstrapStorageSession() {
 		bindAuthSignalsLogout(pb());
 		await loadSettingsDraft();
@@ -88,8 +133,9 @@
 	}
 
 	async function refreshList() {
-		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'storage') return;
-		const sid = storageIdFromRecord(pb().authStore.record);
+		const r = roleFromRecord(pb().authStore.record);
+		const sid = r === 'admin' ? adminSelectedStorageId : storageIdFromRecord(pb().authStore.record);
+		if (!pb().authStore.isValid || !storageDashboardRole(r)) return;
 		if (!sid) {
 			listError = 'No storage hub assigned to your account. Ask an admin to set your user’s storage.';
 			requests = [];
@@ -117,7 +163,8 @@
 
 	async function loadSettingsDraft() {
 		settingsErr = '';
-		const sid = storageIdFromRecord(pb().authStore.record);
+		const r = roleFromRecord(pb().authStore.record);
+		const sid = r === 'admin' ? adminSelectedStorageId : storageIdFromRecord(pb().authStore.record);
 		if (!sid) {
 			settingsLines = '';
 			return;
@@ -135,7 +182,8 @@
 		e.preventDefault();
 		settingsErr = '';
 		settingsOk = false;
-		const sid = storageIdFromRecord(pb().authStore.record);
+		const r = roleFromRecord(pb().authStore.record);
+		const sid = r === 'admin' ? adminSelectedStorageId : storageIdFromRecord(pb().authStore.record);
 		if (!sid) {
 			settingsErr = 'No hub assigned.';
 			return;
@@ -168,7 +216,8 @@
 			syncAuth();
 			const sid = storageIdFromRecord(pb().authStore.record);
 			const expect = sessionStorage.getItem(JOIN_STORAGE_KEY);
-			joinMismatch = Boolean(expect && sid && expect !== sid);
+			const r = roleFromRecord(pb().authStore.record);
+			joinMismatch = r !== 'admin' && Boolean(expect && sid && expect !== sid);
 			await bootstrapStorageSession();
 		} catch (e) {
 			logPbError('storage.login', e);
@@ -236,8 +285,9 @@
 			unsub = null;
 		}
 		realtimeError = '';
-		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'storage') return;
-		const mySid = storageIdFromRecord(pb().authStore.record);
+		const r = roleFromRecord(pb().authStore.record);
+		if (!pb().authStore.isValid || !storageDashboardRole(r)) return;
+		const mySid = r === 'admin' ? adminSelectedStorageId : storageIdFromRecord(pb().authStore.record);
 		if (!mySid) return;
 		try {
 			unsub = await pb()
@@ -311,7 +361,8 @@
 		syncAuth();
 		const unsubAuth = pb().authStore.onChange(() => {
 			syncAuth();
-			if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'storage') {
+			const r = roleFromRecord(pb().authStore.record);
+			if (!pb().authStore.isValid || !storageDashboardRole(r)) {
 				if (unsub) {
 					unsub();
 					unsub = null;
@@ -320,6 +371,9 @@
 				listError = '';
 				realtimeError = '';
 				settingsLines = '';
+				storagesPickList = [];
+				storagesPickError = '';
+				adminSelectedStorageId = '';
 				remindedAtSeenByRequestId.clear();
 			}
 		}, true);
@@ -329,10 +383,15 @@
 			.authRefresh({ expand: 'storage' })
 			.then(async () => {
 				syncAuth();
+				const r = roleFromRecord(pb().authStore.record);
 				const sid = storageIdFromRecord(pb().authStore.record);
 				const expect = sessionStorage.getItem(JOIN_STORAGE_KEY);
-				joinMismatch = Boolean(expect && sid && expect !== sid);
-				if (pb().authStore.isValid && roleFromRecord(pb().authStore.record) === 'storage') {
+				joinMismatch = r !== 'admin' && Boolean(expect && sid && expect !== sid);
+				if (pb().authStore.isValid && r === 'admin') {
+					await loadStoragesForAdmin();
+				}
+				if (pb().authStore.isValid && storageDashboardRole(r)) {
+					if (r === 'admin' && !adminSelectedStorageId) return;
 					await bootstrapStorageSession();
 				}
 			})
@@ -365,16 +424,16 @@
 	);
 </script>
 
-{#if joinMismatch}
+{#if joinMismatch && role !== 'admin'}
 	<div class="mb-4 rounded-lg border border-amber-700 bg-amber-950/50 p-4 text-amber-200">
 		Your account is not linked to this device&rsquo;s storage join link. Use the link your admin sent, or
 		ask for an account update.
 	</div>
 {/if}
 
-{#if !authValid || role !== 'storage'}
+{#if !authValid || !storageDashboardRole(role)}
 	<h1 class="mb-2 text-3xl font-bold text-amber-300">Lager</h1>
-	{#if authValid && role !== 'storage'}
+	{#if authValid && !storageDashboardRole(role)}
 		<WrongRoleHint expected="storage" current={role} />
 	{/if}
 	<form class="max-w-md space-y-4 rounded-xl border border-zinc-700 bg-zinc-900/40 p-6" onsubmit={login}>
@@ -410,9 +469,30 @@
 		</button>
 	</form>
 {:else}
-	<h1 class="mb-4 flex flex-wrap items-baseline gap-x-3">
+	<h1 class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
 		<span class="text-3xl font-bold text-amber-300">Lager</span>
-		<span class="text-xl text-zinc-300">"{hubDisplayName}"</span>
+		{#if role === 'admin'}
+			{#if storagesPickError}
+				<span class="text-sm text-red-400">{storagesPickError}</span>
+			{/if}
+			{#if storagesPickList.length > 0}
+				<label class="sr-only" for="admin-storage-select">Lager auswählen</label>
+				<select
+					id="admin-storage-select"
+					bind:value={adminSelectedStorageId}
+					onchange={() => void handleAdminStorageChange()}
+					class="max-w-[min(100%,28rem)] flex-1 rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-xl text-zinc-200"
+				>
+					{#each storagesPickList as s (s.id)}
+						<option value={s.id}>{s.name}</option>
+					{/each}
+				</select>
+			{:else}
+				<span class="text-xl text-zinc-500">Keine Lager angelegt.</span>
+			{/if}
+		{:else}
+			<span class="text-xl text-zinc-300">"{hubDisplayName}"</span>
+		{/if}
 	</h1>
 
 	{#if listError}

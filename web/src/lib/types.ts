@@ -24,6 +24,11 @@ export type StockRequestRecord = RecordModel & {
 	reminded_at?: string;
 };
 
+/** `bars` collection row. */
+export type BarRecord = RecordModel & {
+	name: string;
+};
+
 /** `storages` collection row (hub + quick_items JSON). */
 export type StorageHubRecord = RecordModel & {
 	name: string;

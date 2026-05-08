@@ -17,12 +17,13 @@
 	import { authUsersWithPasswordOrApiKey } from '$lib/auth_api_key';
 	import { bindAuthSignalsLogout } from '$lib/auth_signals_client';
 	import type { RecordModel } from 'pocketbase';
-	import type { StockRequestRecord, StorageHubRecord } from '$lib/types';
+	import type { BarRecord, StockRequestRecord, StorageHubRecord } from '$lib/types';
 	import { connection } from '$lib/connection.svelte';
 	import DisclosureChevron from '$lib/DisclosureChevron.svelte';
 	import ChevronDirection from '$lib/ChevronDirection.svelte';
 
 	const JOIN_BAR_KEY = 'letztesbier_join_bar';
+	const ADMIN_BAR_KEY = 'letztesbier_admin_bar';
 
 	type SwPushBannerPayload = { title?: string; body?: string; url?: string };
 
@@ -55,6 +56,9 @@
 
 	let storagesList = $state<StorageHubRecord[]>([]);
 	let storagesError = $state('');
+	let barsList = $state<BarRecord[]>([]);
+	let barsError = $state('');
+	let adminSelectedBarId = $state('');
 
 	let authValid = $state(false);
 	let record = $state<RecordModel | null>(null);
@@ -63,7 +67,11 @@
 
 	const role = $derived(roleFromRecord(record));
 	const barExpand = $derived(record?.expand?.bar as { name?: string } | undefined);
-	const barDisplayName = $derived(barExpand?.name ?? 'Your bar');
+	const barDisplayName = $derived(
+		role === 'admin'
+			? barsList.find((b) => b.id === adminSelectedBarId)?.name ?? 'Bar'
+			: (barExpand?.name ?? 'Your bar')
+	);
 	const openRequests = $derived(requests.filter((r) => r.status !== 'done'));
 	const openRequestsSorted = $derived(
 		[...openRequests].sort((a, b) => {
@@ -113,8 +121,43 @@
 		record = pb().authStore.record;
 	}
 
+	function barDashboardRole(r: ReturnType<typeof roleFromRecord>): boolean {
+		return r === 'bar' || r === 'admin';
+	}
+
+	async function loadBarsForAdmin() {
+		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'admin') return;
+		barsError = '';
+		try {
+			const list = await pb()
+				.collection(COLLECTIONS.bars)
+				.getFullList<BarRecord>({
+					requestKey: null,
+					sort: 'name,id',
+					perPage: 200
+				});
+			barsList = list;
+			const saved = sessionStorage.getItem(ADMIN_BAR_KEY);
+			const pick = saved && list.some((b) => b.id === saved) ? saved : (list[0]?.id ?? '');
+			adminSelectedBarId = pick;
+			if (pick) sessionStorage.setItem(ADMIN_BAR_KEY, pick);
+		} catch (e) {
+			logPbError('bar.loadBarsForAdmin', e);
+			barsError = formatPbClientError(e);
+			barsList = [];
+			adminSelectedBarId = '';
+		}
+	}
+
+	async function handleAdminBarChange() {
+		sessionStorage.setItem(ADMIN_BAR_KEY, adminSelectedBarId);
+		await bindRealtime();
+		await refreshList();
+	}
+
 	async function loadStorages() {
-		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar') return;
+		const r = roleFromRecord(pb().authStore.record);
+		if (!pb().authStore.isValid || !barDashboardRole(r)) return;
 		storagesError = '';
 		try {
 			const list = await pb()
@@ -143,8 +186,9 @@
 	}
 
 	async function refreshList() {
-		const bid = barIdFromRecord(pb().authStore.record);
-		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar' || !bid) return;
+		const r = roleFromRecord(pb().authStore.record);
+		const bid = r === 'admin' ? adminSelectedBarId : barIdFromRecord(pb().authStore.record);
+		if (!pb().authStore.isValid || !barDashboardRole(r) || !bid) return;
 		listError = '';
 		try {
 			const list = await pb()
@@ -187,7 +231,8 @@
 			syncAuth();
 			const bid = barIdFromRecord(pb().authStore.record);
 			const expect = sessionStorage.getItem(JOIN_BAR_KEY);
-			joinMismatch = Boolean(expect && bid && expect !== bid);
+			const r = roleFromRecord(pb().authStore.record);
+			joinMismatch = r !== 'admin' && Boolean(expect && bid && expect !== bid);
 			await bootstrapBarSession();
 		} catch (e) {
 			logPbError('bar.login', e);
@@ -297,9 +342,13 @@
 	async function submitRequest(e: Event) {
 		e.preventDefault();
 		err = '';
-		const bid = barIdFromRecord(pb().authStore.record);
+		const r = roleFromRecord(pb().authStore.record);
+		const bid = r === 'admin' ? adminSelectedBarId : barIdFromRecord(pb().authStore.record);
 		if (!bid) {
-			err = 'No bar assigned to your account.';
+			err =
+				r === 'admin'
+					? 'Select a bar first.'
+					: 'No bar assigned to your account.';
 			return;
 		}
 		if (cart.length === 0) {
@@ -308,7 +357,10 @@
 		}
 		const nick = getDeviceNickname();
 		const name =
-			(pb().authStore.record?.expand?.bar as { name?: string } | undefined)?.name ?? barDisplayName;
+			r === 'admin'
+				? barsList.find((b) => b.id === bid)?.name ?? barDisplayName
+				: ((pb().authStore.record?.expand?.bar as { name?: string } | undefined)?.name ??
+					barDisplayName);
 		const groups = new Map<string, Map<string, number>>();
 		const names = new Map<string, string>();
 		for (const line of cart) {
@@ -359,8 +411,9 @@
 			unsubRequests = null;
 		}
 		realtimeError = '';
-		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar') return;
-		const myBar = barIdFromRecord(pb().authStore.record);
+		const r = roleFromRecord(pb().authStore.record);
+		if (!pb().authStore.isValid || !barDashboardRole(r)) return;
+		const myBar = r === 'admin' ? adminSelectedBarId : barIdFromRecord(pb().authStore.record);
 		if (!myBar) return;
 		try {
 			unsubRequests = await pb()
@@ -384,7 +437,8 @@
 			unsubStorages();
 			unsubStorages = null;
 		}
-		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar') return;
+		const r = roleFromRecord(pb().authStore.record);
+		if (!pb().authStore.isValid || !barDashboardRole(r)) return;
 		try {
 			unsubStorages = await pb()
 				.collection(COLLECTIONS.storages)
@@ -426,7 +480,8 @@
 		syncAuth();
 		const unsubAuth = pb().authStore.onChange(() => {
 			syncAuth();
-			if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar') {
+			const r = roleFromRecord(pb().authStore.record);
+			if (!pb().authStore.isValid || !barDashboardRole(r)) {
 				if (unsubRequests) {
 					unsubRequests();
 					unsubRequests = null;
@@ -439,6 +494,9 @@
 				listError = '';
 				realtimeError = '';
 				storagesList = [];
+				barsList = [];
+				barsError = '';
+				adminSelectedBarId = '';
 			}
 		}, true);
 
@@ -447,10 +505,15 @@
 			.authRefresh({ expand: 'bar' })
 			.then(async () => {
 				syncAuth();
+				const r = roleFromRecord(pb().authStore.record);
 				const bid = barIdFromRecord(pb().authStore.record);
 				const expect = sessionStorage.getItem(JOIN_BAR_KEY);
-				joinMismatch = Boolean(expect && bid && expect !== bid);
-				if (pb().authStore.isValid && roleFromRecord(pb().authStore.record) === 'bar') {
+				joinMismatch = r !== 'admin' && Boolean(expect && bid && expect !== bid);
+				if (pb().authStore.isValid && r === 'admin') {
+					await loadBarsForAdmin();
+				}
+				if (pb().authStore.isValid && barDashboardRole(r)) {
+					if (r === 'admin' && !adminSelectedBarId) return;
 					await bootstrapBarSession();
 				}
 			})
@@ -472,7 +535,7 @@
 	});
 </script>
 
-{#if joinMismatch}
+{#if joinMismatch && role !== 'admin'}
 	<div
 		class="mb-4 max-w-md rounded-lg border border-amber-700 bg-amber-950/50 p-4 text-amber-200"
 	>
@@ -481,9 +544,9 @@
 	</div>
 {/if}
 
-{#if !authValid || role !== 'bar'}
+{#if !authValid || !barDashboardRole(role)}
 	<h1 class="mb-2 text-3xl font-bold text-amber-300">Bar</h1>
-	{#if authValid && role !== 'bar'}
+	{#if authValid && !barDashboardRole(role)}
 		<WrongRoleHint expected="bar" current={role} />
 	{/if}
 	<form class="max-w-md space-y-4 rounded-xl border border-zinc-700 bg-zinc-900/40 p-6" onsubmit={login}>
@@ -519,9 +582,30 @@
 		</button>
 	</form>
 {:else}
-	<h1 class="mb-4 flex flex-wrap items-baseline gap-x-3">
+	<h1 class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
 		<span class="text-3xl font-bold text-amber-300">Bar</span>
-		<span class="text-xl text-zinc-300">"{barDisplayName}"</span>
+		{#if role === 'admin'}
+			{#if barsError}
+				<span class="text-sm text-red-400">{barsError}</span>
+			{/if}
+			{#if barsList.length > 0}
+				<label class="sr-only" for="admin-bar-select">Bar auswählen</label>
+				<select
+					id="admin-bar-select"
+					bind:value={adminSelectedBarId}
+					onchange={() => void handleAdminBarChange()}
+					class="max-w-[min(100%,24rem)] flex-1 rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-xl text-zinc-200"
+				>
+					{#each barsList as b (b.id)}
+						<option value={b.id}>{b.name}</option>
+					{/each}
+				</select>
+			{:else}
+				<span class="text-xl text-zinc-500">Keine Bars angelegt.</span>
+			{/if}
+		{:else}
+			<span class="text-xl text-zinc-300">"{barDisplayName}"</span>
+		{/if}
 	</h1>
 
 	{#if listError}

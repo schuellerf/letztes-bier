@@ -14,7 +14,8 @@ routerAdd(
 			if (!auth) {
 				throw e.unauthorizedError('Unauthorized', {});
 			}
-			if (auth.getString('role') !== 'bar') {
+			var authRole = auth.getString('role');
+			if (authRole !== 'bar' && authRole !== 'admin') {
 				throw e.forbiddenError('Forbidden', {});
 			}
 
@@ -56,9 +57,11 @@ routerAdd(
 				);
 			}
 
-			var authBar = auth.getString('bar');
-			if (!authBar || rec.getString('bar') !== authBar) {
-				throw e.forbiddenError('Forbidden', {});
+			if (authRole === 'bar') {
+				var authBar = auth.getString('bar');
+				if (!authBar || rec.getString('bar') !== authBar) {
+					throw e.forbiddenError('Forbidden', {});
+				}
 			}
 
 			// Only throttle after authz checks so mistaken taps (wrong row, stale UI) do not burn the window.
