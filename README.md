@@ -57,6 +57,8 @@ After the SPA is built once (`cd web && npm run build`), you can point `--public
 
 The main schema lives in a **squashed** migration under `pb_migrations/`; **incremental** migrations (for example Web Push **`push_subscriptions`**) apply afterward on a fresh or existing database when you **`serve`** with that directory. If you ever had an incompatible migration history in `./pb_data`, delete that directory (or reset the DB) so PocketBase can apply migrations from scratch.
 
+If a migration **failed** after being recorded, or you **edited** an already-applied migration file, run PocketBase **`migrate down`** (then fix data if needed) or **`migrate history-sync`** so the revised file can apply; see [Migrations](https://pocketbase.io/docs/js-migrations/).
+
 Terminal 2 — Vite dev server (proxies `/api` to PocketBase):
 
 ```bash

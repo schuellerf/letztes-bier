@@ -7,7 +7,7 @@
 | `bars` | `admin`, `storage`, `bar` | `admin` | `admin` | Create bars and staff accounts in the Admin UI (or API as admin). |
 | `storages` | `admin`, `storage`, `bar` | `admin` | `admin`, or **`storage`** only for the row `id = @request.auth.storage` | Hubs have `quick_items` (JSON). Bar users list all hubs to build the combined quick-add palette. `name` / `hub_order` are enforced server-side for non-admins via `pb_hooks`. |
 | `requests` | **`admin`**: all; **`storage`**: `storage = @request.auth.storage`; **`bar`**: `bar = @request.auth.bar`** | Bar only; `status = pending`; `bar` and **`storage`** + `storage_name` set | `storage` or `admin` | Bar users cannot patch after create (fulfillment uses Accept / Done). Each request targets one hub (`storage`). |
-| `push_subscriptions` | `owner.id = @request.auth.id` (list/view/update/delete); create uses `@request.body.owner` | Same (create: body must set `owner` to self) | Same | One row per browser push endpoint (`endpoint` is unique). Relation **`owner`** → `users`. In rules, relations are compared via **`.id`**. Field cannot be named `user` (reserved in rules). Used by `pb_hooks` for Web Push. |
+| `push_subscriptions` | `subscriber = @request.auth.id` | Same; create requires `@request.body.subscriber = @request.auth.id` | Same | One row per browser push endpoint (`endpoint` is unique). Relation **`subscriber`** → `users` (avoid names like **`user`** / **`owner`** in API rules). Rules use single-relation `=` like **`requests`**. Used by `pb_hooks` for Web Push. |
 
 ## Public deployment
 

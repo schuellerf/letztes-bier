@@ -2,7 +2,7 @@ import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 import type PocketBase from 'pocketbase';
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
 	const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
 	const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
 	const rawData = atob(base64);
@@ -33,7 +33,7 @@ export async function syncPushSubscriptionToPocketBase(pb: PocketBase): Promise<
 	if (!sub) {
 		sub = await reg.pushManager.subscribe({
 			userVisibleOnly: true,
-			applicationServerKey: urlBase64ToUint8Array(vapid)
+			applicationServerKey: urlBase64ToUint8Array(vapid) as BufferSource
 		});
 	}
 
@@ -62,7 +62,7 @@ export async function syncPushSubscriptionToPocketBase(pb: PocketBase): Promise<
 		}
 	} catch {
 		await pb.collection('push_subscriptions').create({
-			owner: pb.authStore.record.id,
+			subscriber: pb.authStore.record.id,
 			endpoint,
 			p256dh,
 			auth,

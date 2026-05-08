@@ -2,20 +2,20 @@
 
 migrate(
 	(app) => {
-		// Stable id for the default auth collection (see PocketBase docs / GitHub discussions).
-		const usersCollectionId = '_pb_users_auth_';
+		const users = app.findCollectionByNameOrId('users');
 
 		const pushSubscriptions = new Collection({
 			type: 'base',
 			name: 'push_subscriptions',
 			fields: [
-				new RelationField({
-					name: 'owner',
+				{
+					type: 'relation',
+					name: 'subscriber',
 					required: true,
 					maxSelect: 1,
-					collectionId: usersCollectionId,
+					collectionId: users.id,
 					cascadeDelete: true
-				}),
+				},
 				{
 					type: 'text',
 					name: 'endpoint',
@@ -44,17 +44,15 @@ migrate(
 			indexes: ['CREATE UNIQUE INDEX idx_push_subscriptions_endpoint ON push_subscriptions (endpoint)']
 		});
 
-		// Save schema first so rule validation sees relation fields.
 		app.save(pushSubscriptions);
 
-		const c = app.findCollectionByNameOrId('push_subscriptions');
-		c.listRule = '@request.auth.id != "" && owner.id = @request.auth.id';
-		c.viewRule = '@request.auth.id != "" && owner.id = @request.auth.id';
-		c.createRule =
-			'@request.auth.id != "" && @request.body.owner:isset = true && @request.body.owner = @request.auth.id';
-		c.updateRule = '@request.auth.id != "" && owner.id = @request.auth.id';
-		c.deleteRule = '@request.auth.id != "" && owner.id = @request.auth.id';
-		app.save(c);
+		pushSubscriptions.listRule = '@request.auth.id != "" && subscriber = @request.auth.id';
+		pushSubscriptions.viewRule = '@request.auth.id != "" && subscriber = @request.auth.id';
+		pushSubscriptions.createRule =
+			'@request.auth.id != "" && @request.body.subscriber:isset = true && @request.body.subscriber = @request.auth.id';
+		pushSubscriptions.updateRule = '@request.auth.id != "" && subscriber = @request.auth.id';
+		pushSubscriptions.deleteRule = '@request.auth.id != "" && subscriber = @request.auth.id';
+		app.save(pushSubscriptions);
 	},
 	(app) => {
 		try {
