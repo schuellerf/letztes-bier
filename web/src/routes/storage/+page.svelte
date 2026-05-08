@@ -15,6 +15,8 @@
 	import { parseQuickItems, summarizeItems } from '$lib/items';
 	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate, parseRequestTimestamp } from '$lib/dates';
 	import { registerRealtimeCleanup } from '$lib/logout_hooks';
+	import { authUsersWithPasswordOrApiKey } from '$lib/auth_api_key';
+	import { bindAuthSignalsLogout } from '$lib/auth_signals_client';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockRequestRecord, StorageHubRecord } from '$lib/types';
 	import { connection } from '$lib/connection.svelte';
@@ -76,6 +78,13 @@
 	function syncAuth() {
 		authValid = pb().authStore.isValid;
 		record = pb().authStore.record;
+	}
+
+	async function bootstrapStorageSession() {
+		bindAuthSignalsLogout(pb());
+		await loadSettingsDraft();
+		await bindRealtime();
+		await refreshList();
 	}
 
 	async function refreshList() {
@@ -155,16 +164,12 @@
 		err = '';
 		loading = true;
 		try {
-			await pb()
-				.collection(COLLECTIONS.users)
-				.authWithPassword(email.trim(), password, { expand: 'storage' });
+			await authUsersWithPasswordOrApiKey(pb(), email.trim(), password, 'storage');
 			syncAuth();
 			const sid = storageIdFromRecord(pb().authStore.record);
 			const expect = sessionStorage.getItem(JOIN_STORAGE_KEY);
 			joinMismatch = Boolean(expect && sid && expect !== sid);
-			await loadSettingsDraft();
-			await bindRealtime();
-			await refreshList();
+			await bootstrapStorageSession();
 		} catch (e) {
 			logPbError('storage.login', e);
 			err = formatPbClientError(e);
@@ -328,9 +333,7 @@
 				const expect = sessionStorage.getItem(JOIN_STORAGE_KEY);
 				joinMismatch = Boolean(expect && sid && expect !== sid);
 				if (pb().authStore.isValid && roleFromRecord(pb().authStore.record) === 'storage') {
-					await loadSettingsDraft();
-					await refreshList();
-					await bindRealtime();
+					await bootstrapStorageSession();
 				}
 			})
 			.catch((e) => {
@@ -386,7 +389,7 @@
 			/>
 		</div>
 		<div>
-			<label class="mb-1 block text-sm text-zinc-400" for="pw">Password</label>
+			<label class="mb-1 block text-sm text-zinc-400" for="pw">Password or device API key</label>
 			<input
 				id="pw"
 				type="password"

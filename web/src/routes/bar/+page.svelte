@@ -14,6 +14,8 @@
 	import { normalizeItems, parseQuickItems, summarizeItems } from '$lib/items';
 	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate, parseRequestTimestamp } from '$lib/dates';
 	import { registerRealtimeCleanup } from '$lib/logout_hooks';
+	import { authUsersWithPasswordOrApiKey } from '$lib/auth_api_key';
+	import { bindAuthSignalsLogout } from '$lib/auth_signals_client';
 	import type { RecordModel } from 'pocketbase';
 	import type { StockRequestRecord, StorageHubRecord } from '$lib/types';
 	import { connection } from '$lib/connection.svelte';
@@ -132,6 +134,14 @@
 		}
 	}
 
+	async function bootstrapBarSession() {
+		bindAuthSignalsLogout(pb());
+		await loadStorages();
+		await bindRealtime();
+		await bindStoragesRealtime();
+		await refreshList();
+	}
+
 	async function refreshList() {
 		const bid = barIdFromRecord(pb().authStore.record);
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar' || !bid) return;
@@ -173,17 +183,12 @@
 		err = '';
 		loading = true;
 		try {
-			await pb()
-				.collection(COLLECTIONS.users)
-				.authWithPassword(email.trim(), password, { expand: 'bar' });
+			await authUsersWithPasswordOrApiKey(pb(), email.trim(), password, 'bar');
 			syncAuth();
 			const bid = barIdFromRecord(pb().authStore.record);
 			const expect = sessionStorage.getItem(JOIN_BAR_KEY);
 			joinMismatch = Boolean(expect && bid && expect !== bid);
-			await loadStorages();
-			await bindRealtime();
-			await bindStoragesRealtime();
-			await refreshList();
+			await bootstrapBarSession();
 		} catch (e) {
 			logPbError('bar.login', e);
 			err = formatPbClientError(e);
@@ -446,10 +451,7 @@
 				const expect = sessionStorage.getItem(JOIN_BAR_KEY);
 				joinMismatch = Boolean(expect && bid && expect !== bid);
 				if (pb().authStore.isValid && roleFromRecord(pb().authStore.record) === 'bar') {
-					await loadStorages();
-					await refreshList();
-					await bindRealtime();
-					await bindStoragesRealtime();
+					await bootstrapBarSession();
 				}
 			})
 			.catch((e) => {
@@ -496,7 +498,7 @@
 			/>
 		</div>
 		<div>
-			<label class="mb-1 block text-sm text-zinc-400" for="pw">Password</label>
+			<label class="mb-1 block text-sm text-zinc-400" for="pw">Password or device API key</label>
 			<input
 				id="pw"
 				type="password"

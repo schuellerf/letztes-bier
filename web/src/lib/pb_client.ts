@@ -7,7 +7,8 @@ export const COLLECTIONS = {
 	requests: 'requests',
 	bars: 'bars',
 	storages: 'storages',
-	users: 'users'
+	users: 'users',
+	auth_signals: 'auth_signals'
 } as const;
 
 let client: PocketBase | null = null;

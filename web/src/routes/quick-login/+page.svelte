@@ -5,25 +5,41 @@
 	import { pb, COLLECTIONS } from '$lib/pb_client';
 	import { formatPbClientError, logPbError } from '$lib/pb_errors';
 	import { roleFromRecord, homePathForRole } from '$lib/auth';
+	import { authUsersWithPasswordOrApiKey } from '$lib/auth_api_key';
+
+	const EXPAND = 'bar,storage';
 
 	let err = $state('');
 	let busy = $state(true);
 
 	onMount(() => {
 		const email = page.url.searchParams.get('email')?.trim() ?? '';
-		const password = page.url.searchParams.get('password') ?? '';
+		const apiKey =
+			page.url.searchParams.get('apiKey') ??
+			page.url.searchParams.get('key') ??
+			'';
+		const passwordLegacy = page.url.searchParams.get('password') ?? '';
 
-		if (!email || !password) {
-			err = 'Missing email or password in link.';
+		if (!email) {
+			err = 'Missing email in link.';
 			busy = false;
 			return;
 		}
 
 		void (async () => {
 			try {
-				await pb()
-					.collection(COLLECTIONS.users)
-					.authWithPassword(email, password, { expand: 'bar' });
+				if (apiKey) {
+					await authUsersWithPasswordOrApiKey(pb(), email, apiKey, EXPAND);
+				} else if (passwordLegacy) {
+					await pb()
+						.collection(COLLECTIONS.users)
+						.authWithPassword(email, passwordLegacy, { expand: EXPAND });
+				} else {
+					err = 'Missing device key or password in link.';
+					replacePathWithoutQuery();
+					busy = false;
+					return;
+				}
 				replacePathWithoutQuery();
 				const role = roleFromRecord(pb().authStore.record);
 				await goto(homePathForRole(role), { replaceState: true });

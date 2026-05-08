@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import QRCode from 'qrcode';
 	import { pb, COLLECTIONS } from '$lib/pb_client';
+	import { API_ADMIN_ENSURE_LOGIN_KEY, API_ADMIN_REVOKE_LOGIN_KEY } from '$lib/auth_api_key';
 	import { formatPbClientError, logPbError } from '$lib/pb_errors';
 	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
 	import { roleFromRecord } from '$lib/auth';
@@ -113,7 +114,10 @@
 	let loadErr = $state('');
 	let selected = $state<RecordModel | null>(null);
 
-	let linkPassword = $state('');
+	let deviceApiKey = $state('');
+	let keyBusy = $state(false);
+	let keyLoadErr = $state('');
+	let revokeBusy = $state(false);
 	let linkGenErr = $state('');
 	let generatedUrl = $state('');
 	let qrSrc = $state('');
@@ -191,8 +195,8 @@
 			selected = null;
 			generatedUrl = '';
 			qrSrc = '';
-			linkPassword = '';
-			linkGenErr = '';
+			deviceApiKey = '';
+			keyLoadErr = '';
 		} catch (e) {
 			logPbError('admin.users.loadStaff', e);
 			loadErr = formatPbClientError(e);
@@ -200,13 +204,55 @@
 		}
 	}
 
-	function selectUser(u: RecordModel) {
+	async function selectUser(u: RecordModel) {
 		selected = u;
 		generatedUrl = '';
 		qrSrc = '';
-		linkPassword = '';
+		deviceApiKey = '';
 		linkGenErr = '';
+		keyLoadErr = '';
 		copyDone = false;
+		await ensureDeviceKey(u.id);
+	}
+
+	async function ensureDeviceKey(userId: string) {
+		keyBusy = true;
+		keyLoadErr = '';
+		try {
+			const res = (await pb().send(API_ADMIN_ENSURE_LOGIN_KEY, {
+				method: 'POST',
+				body: JSON.stringify({ userId }),
+				headers: { 'Content-Type': 'application/json' }
+			})) as { apiKey: string };
+			deviceApiKey = res.apiKey;
+		} catch (e) {
+			logPbError('admin.users.ensureKey', e);
+			keyLoadErr = formatPbClientError(e);
+			deviceApiKey = '';
+		} finally {
+			keyBusy = false;
+		}
+	}
+
+	async function revokeDeviceKey() {
+		if (!selected) return;
+		revokeBusy = true;
+		linkGenErr = '';
+		try {
+			const res = (await pb().send(API_ADMIN_REVOKE_LOGIN_KEY, {
+				method: 'POST',
+				body: JSON.stringify({ userId: selected.id }),
+				headers: { 'Content-Type': 'application/json' }
+			})) as { apiKey: string };
+			deviceApiKey = res.apiKey;
+			generatedUrl = '';
+			qrSrc = '';
+		} catch (e) {
+			logPbError('admin.users.revokeKey', e);
+			linkGenErr = formatPbClientError(e);
+		} finally {
+			revokeBusy = false;
+		}
 	}
 
 	function barDisplay(u: RecordModel): string {
@@ -236,6 +282,12 @@
 			qrSrc = '';
 			return;
 		}
+		if (!deviceApiKey.trim()) {
+			linkGenErr = 'No device API key yet. Wait for load or fix errors above.';
+			generatedUrl = '';
+			qrSrc = '';
+			return;
+		}
 		let base = linkBaseOrigin.trim();
 		if (!base) {
 			base = typeof window !== 'undefined' ? window.location.origin : '';
@@ -258,7 +310,7 @@
 		}
 		const u = new URL('/quick-login', originBase);
 		u.searchParams.set('email', em);
-		u.searchParams.set('password', linkPassword);
+		u.searchParams.set('apiKey', deviceApiKey.trim());
 		generatedUrl = u.toString();
 		copyDone = false;
 	}
@@ -366,7 +418,7 @@
 							class="w-full border-b border-zinc-800 px-4 py-3 text-left last:border-b-0 hover:bg-zinc-800/60 {selected?.id === u.id
 								? 'bg-zinc-800/80'
 								: ''}"
-							onclick={() => selectUser(u)}
+							onclick={() => void selectUser(u)}
 						>
 							<span class="font-medium text-zinc-100">{u.email}</span>
 							<span class="ml-2 text-sm text-zinc-500">{(u.role as string) ?? '—'}</span>
@@ -392,18 +444,28 @@
 					Selected: <strong class="text-zinc-200">{selected.email}</strong>
 				</p>
 				<p class="mb-4 rounded-lg border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-100/90">
-					PocketBase does not expose passwords. Enter this user’s password below only to build the
-					link—nothing is sent until someone opens the URL. Putting credentials in a URL is risky
-					(history, logs, QR); use on trusted networks.
+					A per-user <strong class="text-amber-100">device API key</strong> is stored on the server (hidden
+					from normal API responses). The sign-in URL and QR contain that key—treat them like credentials
+					(history, logs); use on trusted networks.
 				</p>
-				<label class="mb-1 block text-sm text-zinc-400" for="link-pw">User password (for link only)</label>
-				<input
-					id="link-pw"
-					type="password"
-					class="mb-3 w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-lg text-zinc-100"
-					autocomplete="off"
-					bind:value={linkPassword}
-				/>
+				{#if keyBusy}
+					<p class="mb-3 text-sm text-zinc-400">Loading device key…</p>
+				{/if}
+				{#if keyLoadErr}
+					<p class="mb-3 text-sm text-red-300" role="alert">{keyLoadErr}</p>
+				{/if}
+				<button
+					type="button"
+					class="mb-3 w-full rounded-lg border border-red-800/70 bg-red-950/30 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-950/50 disabled:opacity-50"
+					disabled={revokeBusy || keyBusy || !deviceApiKey}
+					onclick={() => void revokeDeviceKey()}
+				>
+					{revokeBusy ? 'Revoking…' : 'Revoke key & sign out this user everywhere'}
+				</button>
+				<p class="mb-3 text-xs text-zinc-500">
+					Revoke rotates the device key and ends all active sessions for this user (password and device),
+					and sends a realtime <code class="text-zinc-400">logout</code> signal to connected apps.
+				</p>
 				<label class="mb-1 block text-sm text-zinc-400" for="link-origin-select">Open app at (for link & QR)</label>
 				{#if linkOriginOptions.length > 0}
 					<select
@@ -425,7 +487,7 @@
 				<button
 					type="button"
 					class="mb-4 rounded-lg bg-sky-600 px-4 py-2 font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
-					disabled={!linkPassword.trim()}
+					disabled={!deviceApiKey.trim() || keyBusy}
 					onclick={buildQuickLoginUrl}
 				>
 					Generate link & QR
