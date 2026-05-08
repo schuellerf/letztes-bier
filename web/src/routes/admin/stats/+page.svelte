@@ -19,10 +19,13 @@
 
 	const role = $derived(roleFromRecord(record));
 
-	let perBar = $state<Record<string, number>>({});
+	let rawRequests = $state<StockRequestRecord[]>([]);
+	let bars = $state<RecordModel[]>([]);
+	let selectedBarId = $state('');
+	let selectedItemLabel = $state('');
+
 	let durationsPickMin = $state<number[]>([]);
 	let durationsTotal = $state<number[]>([]);
-	let peakHours = $state<number[]>(Array(24).fill(0));
 
 	function syncAuth() {
 		authValid = pb().authStore.isValid;
@@ -40,6 +43,79 @@
 		if (!arr.length) return null;
 		return arr.reduce((a, b) => a + b, 0) / arr.length;
 	}
+
+	function onBarFilterChange() {
+		selectedItemLabel = '';
+	}
+
+	const filteredByBar = $derived(
+		selectedBarId === '' ? rawRequests : rawRequests.filter((r) => r.bar === selectedBarId)
+	);
+
+	const perBar = $derived.by(() => {
+		const barCounts: Record<string, number> = {};
+		for (const r of filteredByBar) {
+			barCounts[r.bar_name] = (barCounts[r.bar_name] ?? 0) + 1;
+		}
+		return barCounts;
+	});
+
+	const itemLabelOptions = $derived.by(() => {
+		const set = new Set<string>();
+		for (const r of filteredByBar) {
+			if (!Array.isArray(r.items)) continue;
+			for (const it of r.items) {
+				const lab = it?.label;
+				if (lab != null && String(lab) !== '') set.add(String(lab));
+			}
+		}
+		return [...set].sort((a, b) => a.localeCompare(b));
+	});
+
+	const itemTotalsSorted = $derived.by(() => {
+		const acc = new Map<string, number>();
+		for (const r of filteredByBar) {
+			if (!Array.isArray(r.items)) continue;
+			for (const it of r.items) {
+				const label = it?.label;
+				if (label == null || String(label) === '') continue;
+				const qty =
+					typeof it.qty === 'number' && !Number.isNaN(it.qty) ? it.qty : 0;
+				const key = String(label);
+				acc.set(key, (acc.get(key) ?? 0) + qty);
+			}
+		}
+		return [...acc.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+	});
+
+	const requestsForPeak = $derived.by(() => {
+		if (selectedItemLabel === '') return filteredByBar;
+		return filteredByBar.filter(
+			(r) =>
+				Array.isArray(r.items) &&
+				r.items.some((it) => it?.label != null && String(it.label) === selectedItemLabel)
+		);
+	});
+
+	const peakHours = $derived.by(() => {
+		const hours = Array(24).fill(0);
+		for (const r of requestsForPeak) {
+			const cDate = parsePbDate(r.requested_at);
+			if (!cDate) continue;
+			hours[cDate.getHours()]++;
+		}
+		return hours;
+	});
+
+	const peakIdx = $derived(
+		peakHours.length ? peakHours.indexOf(Math.max(...peakHours)) : 0
+	);
+
+	$effect(() => {
+		if (selectedItemLabel !== '' && !itemLabelOptions.includes(selectedItemLabel)) {
+			selectedItemLabel = '';
+		}
+	});
 
 	async function login(e: Event) {
 		e.preventDefault();
@@ -61,22 +137,27 @@
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'admin') return;
 		err = '';
 		try {
-			const items = await pb()
-				.collection(COLLECTIONS.requests)
-				.getFullList<StockRequestRecord>({ perPage: 500, sort: '-id', requestKey: null });
+			const [items, barList] = await Promise.all([
+				pb()
+					.collection(COLLECTIONS.requests)
+					.getFullList<StockRequestRecord>({ perPage: 500, sort: '-id', requestKey: null }),
+				pb()
+					.collection(COLLECTIONS.bars)
+					.getFullList<RecordModel>({ requestKey: null, sort: 'name', perPage: 200 })
+			]);
 
-			const barCounts: Record<string, number> = {};
+			rawRequests = items;
+			bars = barList;
+			selectedBarId = '';
+			selectedItemLabel = '';
+
 			const pickMs: number[] = [];
 			const totalMs: number[] = [];
-			const hours = Array(24).fill(0);
 
 			for (const r of items) {
-				barCounts[r.bar_name] = (barCounts[r.bar_name] ?? 0) + 1;
 				const cDate = parsePbDate(r.requested_at);
 				if (!cDate) continue;
 				const c = cDate.getTime();
-				const h = cDate.getHours();
-				hours[h]++;
 
 				if (r.status === 'done' && r.accepted_at) {
 					const a = parsePbDate(r.accepted_at);
@@ -90,10 +171,8 @@
 
 			pickMs.sort((a, b) => a - b);
 			totalMs.sort((a, b) => a - b);
-			perBar = barCounts;
 			durationsPickMin = pickMs.map((ms) => ms / 60000);
 			durationsTotal = totalMs.map((ms) => ms / 60000);
-			peakHours = hours;
 			loaded = true;
 		} catch (e) {
 			logPbError('admin.loadStats', e);
@@ -118,10 +197,6 @@
 
 		return () => off();
 	});
-
-	const peakIdx = $derived(
-		peakHours.length ? peakHours.indexOf(Math.max(...peakHours)) : 0
-	);
 </script>
 
 <h1 class="mb-2 text-3xl font-bold text-amber-300">Admin statistics</h1>
@@ -178,6 +253,36 @@
 	{/if}
 
 	{#if loaded}
+		<div class="mb-8 flex flex-wrap items-end gap-6">
+			<div>
+				<label class="mb-1 block text-sm text-zinc-400" for="filter-bar">Bar</label>
+				<select
+					id="filter-bar"
+					class="min-w-[12rem] rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-zinc-200"
+					bind:value={selectedBarId}
+					onchange={onBarFilterChange}
+				>
+					<option value="">All bars</option>
+					{#each bars as b}
+						<option value={b.id}>{b.name}</option>
+					{/each}
+				</select>
+			</div>
+			<div>
+				<label class="mb-1 block text-sm text-zinc-400" for="filter-item">Item (peak hours)</label>
+				<select
+					id="filter-item"
+					class="min-w-[12rem] rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-zinc-200"
+					bind:value={selectedItemLabel}
+				>
+					<option value="">All items</option>
+					{#each itemLabelOptions as lab}
+						<option value={lab}>{lab}</option>
+					{/each}
+				</select>
+			</div>
+		</div>
+
 		<section class="mb-8">
 			<h2 class="mb-2 text-xl font-semibold text-zinc-200">Requests per bar</h2>
 			<ul class="space-y-1 text-zinc-300">
@@ -188,6 +293,20 @@
 					</li>
 				{:else}
 					<li>No data yet.</li>
+				{/each}
+			</ul>
+		</section>
+
+		<section class="mb-8">
+			<h2 class="mb-2 text-xl font-semibold text-zinc-200">Orders by item (total qty)</h2>
+			<ul class="space-y-1 text-zinc-300">
+				{#each itemTotalsSorted as [label, qty]}
+					<li class="flex justify-between border-b border-zinc-800 py-2">
+						<span>{label}</span>
+						<span class="font-mono text-amber-300">{qty}</span>
+					</li>
+				{:else}
+					<li>No line items in this filter.</li>
 				{/each}
 			</ul>
 		</section>
