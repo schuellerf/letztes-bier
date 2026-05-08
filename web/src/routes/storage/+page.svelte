@@ -194,14 +194,17 @@
 		if (!mySid) return;
 		unsub = await pb()
 			.collection(COLLECTIONS.requests)
-			.subscribe<StockRequestRecord>('*', (ev) => {
-				const r = ev.record;
-				if (r.storage !== mySid) return;
-				void refreshList();
-				if (ev.action === 'create' && r.status === 'pending') {
-					notifyNewPendingRequest(r.id, r.bar_name, r.bar_device_nickname, r.items);
-				}
-			});
+			.subscribe<StockRequestRecord>(
+				'*',
+				(ev) => {
+					const r = ev.record;
+					void refreshList();
+					if (ev.action === 'create' && r.status === 'pending') {
+						notifyNewPendingRequest(r.id, r.bar_name, r.bar_device_nickname, r.items);
+					}
+				},
+				{ filter: storageOpenRequestsFilter(mySid) }
+			);
 	}
 
 	onMount(() => {

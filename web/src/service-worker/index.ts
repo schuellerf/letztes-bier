@@ -50,17 +50,33 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
 	event.waitUntil(
 		(async () => {
 			const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-			for (const client of all) {
-				if (!client.url.startsWith(self.location.origin)) continue;
+			const sameOrigin = all.filter((c) => c.url.startsWith(self.location.origin));
+			const ordered = [
+				...sameOrigin.filter((c) => 'visibilityState' in c && c.visibilityState === 'visible'),
+				...sameOrigin.filter((c) => !('visibilityState' in c && c.visibilityState === 'visible'))
+			];
+
+			for (const client of ordered) {
 				if ('navigate' in client && typeof client.navigate === 'function') {
-					await client.navigate(targetUrl);
+					try {
+						await client.navigate(targetUrl);
+					} catch {
+						/* still try to focus this window */
+					}
 				}
-				if ('focus' in client) {
+				try {
 					await client.focus();
 					return;
+				} catch {
+					/* try next */
 				}
 			}
-			await self.clients.openWindow(targetUrl);
+
+			try {
+				await self.clients.openWindow(targetUrl);
+			} catch {
+				/* */
+			}
 		})()
 	);
 });

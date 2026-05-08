@@ -311,17 +311,21 @@
 			unsubRequests = null;
 		}
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar') return;
+		const myBar = barIdFromRecord(pb().authStore.record);
+		if (!myBar) return;
 		unsubRequests = await pb()
 			.collection(COLLECTIONS.requests)
-			.subscribe<StockRequestRecord>('*', (ev) => {
-				const r = ev.record;
-				const myBar = barIdFromRecord(pb().authStore.record);
-				if (!myBar || r.bar !== myBar) return;
-				void refreshList();
-				if (ev.action === 'update' && r.status === 'accepted') {
-					notifyRequestAccepted(r.id, r.accepted_by_nickname, summarizeItems(r.items));
-				}
-			});
+			.subscribe<StockRequestRecord>(
+				'*',
+				(ev) => {
+					const r = ev.record;
+					void refreshList();
+					if (ev.action === 'update' && r.status === 'accepted') {
+						notifyRequestAccepted(r.id, r.accepted_by_nickname, summarizeItems(r.items));
+					}
+				},
+				{ filter: barRequestsFilter(myBar) }
+			);
 	}
 
 	async function bindStoragesRealtime() {
