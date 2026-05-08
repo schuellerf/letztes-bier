@@ -20,6 +20,8 @@ export type StockRequestRecord = RecordModel & {
 	bar_device_nickname?: string;
 	accepted_by_nickname?: string;
 	done_by_nickname?: string;
+	/** Set by bar "Erinnern" hook; drives realtime local notification when Web Push is unavailable. */
+	reminded_at?: string;
 };
 
 /** `storages` collection row (hub + quick_items JSON). */

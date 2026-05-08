@@ -78,6 +78,18 @@ routerAdd(
 				storageHub: rec.getString('storage')
 			});
 
+			try {
+				rec.set('reminded_at', new Date().toISOString());
+				e.app.save(rec);
+			} catch (saveErr) {
+				console.warn('bar_remind_request: save reminded_at failed', saveErr);
+				dbg.pushNotifyDebugLog('bar_remind_save_err', {
+					requestId: rid,
+					err: saveErr != null ? String(saveErr) : 'unknown'
+				});
+				throw e.internalServerError('Failed to record reminder', {});
+			}
+
 			n.pushPendingRequestNotifyStorage(e.app, rec, { reminder: true });
 
 			dbg.pushNotifyDebugLog('bar_remind_response', {

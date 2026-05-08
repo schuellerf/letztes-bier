@@ -98,6 +98,24 @@ export function notifyNewPendingRequest(
 	}).catch(() => {});
 }
 
+/** Erinnern relayed via realtime `reminded_at` (when Web Push rows are missing or in addition to push). */
+export function notifyReminderFromBar(
+	recordId: string,
+	remindedAtIso: string,
+	barName: string,
+	barNick?: string,
+	items?: unknown
+) {
+	const stamp = String(remindedAtIso).trim() || `${recordId}-${Date.now()}`;
+	const title = `Erinnerung · ${storageNotifyTitle(barName, barNick)}`;
+	const body = itemsAsNotificationBody(items);
+	const tagSlug = stamp.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(0, 80);
+	void notifyOnce('storage-remind', recordId, stamp, title, body || undefined, {
+		tag: `remind-local-${recordId}-${tagSlug}`,
+		url: '/storage'
+	}).catch(() => {});
+}
+
 export function notifyRequestAccepted(recordId: string, acceptNick?: string, itemsPreview?: string) {
 	const who = acceptNick?.trim() || 'Storage';
 	void notifyOnce(

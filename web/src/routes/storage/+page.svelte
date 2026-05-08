@@ -11,7 +11,7 @@
 	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
 	import { roleFromRecord, storageIdFromRecord, relationIdFromField } from '$lib/auth';
 	import { getDeviceNickname } from '$lib/device_nickname';
-	import { notifyNewPendingRequest } from '$lib/notifications';
+	import { notifyNewPendingRequest, notifyReminderFromBar } from '$lib/notifications';
 	import { parseQuickItems, summarizeItems } from '$lib/items';
 	import { formatPbDateTime, elapsedHhMmSsSince, parsePbDate, parseRequestTimestamp } from '$lib/dates';
 	import { registerRealtimeCleanup } from '$lib/logout_hooks';
@@ -47,10 +47,29 @@
 	/** In-app line when SW delivers a push while this tab is foreground (no duplicate OS toast). */
 	let pushBanner = $state('');
 	let pushBannerClear: ReturnType<typeof setTimeout> | null = null;
+	/** Erinnern via realtime when system notifications are off or unsupported. */
+	let remindInboundOk = $state('');
+	let remindInboundClear: ReturnType<typeof setTimeout> | null = null;
+
+	/** Last seen `reminded_at` per request — avoids replay after refresh/reconnect. */
+	const remindedAtSeenByRequestId = new Map<string, string>();
 
 	const role = $derived(roleFromRecord(record));
 	const hubExpand = $derived(record?.expand?.storage as { name?: string } | undefined);
 	const hubDisplayName = $derived(hubExpand?.name ?? 'Your hub');
+
+	function normalizeRemindedAt(v: unknown): string {
+		if (v == null) return '';
+		if (typeof v === 'string') return v.trim();
+		return String(v).trim();
+	}
+
+	function syncRemindedAtSeenFromRequests() {
+		remindedAtSeenByRequestId.clear();
+		for (const row of requests) {
+			remindedAtSeenByRequestId.set(row.id, normalizeRemindedAt(row.reminded_at));
+		}
+	}
 
 	function syncAuth() {
 		authValid = pb().authStore.isValid;
@@ -76,6 +95,7 @@
 					perPage: 500
 				});
 			requests = sortRequestsForStorage(list);
+			syncRemindedAtSeenFromRequests();
 			connection.reconnecting = false;
 		} catch (e) {
 			logPbError('storage.refreshList', e);
@@ -217,6 +237,37 @@
 				.subscribe<StockRequestRecord>('*', (ev) => {
 					const r = ev.record;
 					if (relationIdFromField(r.storage) !== mySid) return;
+
+					if (ev.action === 'update') {
+						const cur = normalizeRemindedAt(r.reminded_at);
+						if (cur) {
+							const prev = remindedAtSeenByRequestId.get(r.id) ?? '';
+							if (cur !== prev) {
+								remindedAtSeenByRequestId.set(r.id, cur);
+								notifyReminderFromBar(
+									r.id,
+									cur,
+									r.bar_name,
+									r.bar_device_nickname,
+									r.items
+								);
+								const granted =
+									typeof Notification !== 'undefined' &&
+									Notification.permission === 'granted';
+								if (!granted) {
+									const nick = r.bar_device_nickname?.trim();
+									const bn = String(r.bar_name ?? '').trim() || 'Bar';
+									remindInboundOk = nick ? `Erinnerung — ${bn} (${nick})` : `Erinnerung — ${bn}`;
+									if (remindInboundClear) clearTimeout(remindInboundClear);
+									remindInboundClear = setTimeout(() => {
+										remindInboundOk = '';
+										remindInboundClear = null;
+									}, 5000);
+								}
+							}
+						}
+					}
+
 					void refreshList();
 					if (ev.action === 'create' && r.status === 'pending') {
 						notifyNewPendingRequest(r.id, r.bar_name, r.bar_device_nickname, r.items);
@@ -261,6 +312,7 @@
 				listError = '';
 				realtimeError = '';
 				settingsLines = '';
+				remindedAtSeenByRequestId.clear();
 			}
 		}, true);
 
@@ -285,6 +337,7 @@
 		return () => {
 			clearInterval(clock);
 			if (pushBannerClear) clearTimeout(pushBannerClear);
+			if (remindInboundClear) clearTimeout(remindInboundClear);
 			if ('serviceWorker' in navigator) {
 				navigator.serviceWorker.removeEventListener('message', onSwMessage);
 			}
@@ -371,6 +424,15 @@
 			role="status"
 		>
 			{pushBanner}
+		</div>
+	{/if}
+
+	{#if remindInboundOk}
+		<div
+			class="mb-4 rounded-lg border border-sky-800 bg-sky-950/40 px-4 py-3 text-sky-100"
+			role="status"
+		>
+			{remindInboundOk}
 		</div>
 	{/if}
 
