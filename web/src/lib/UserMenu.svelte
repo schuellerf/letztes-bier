@@ -6,6 +6,8 @@
 	import { ensureNotifyPermission } from '$lib/notifications';
 	import { syncPushSubscriptionToPocketBase } from '$lib/push_subscription';
 	import { runLogout } from '$lib/logout_hooks';
+	import { roleFromRecord } from '$lib/auth';
+	import type { UserRole } from '$lib/types';
 
 	const MENU_PATHS = new Set(['/bar', '/storage', '/admin/stats', '/admin/users']);
 
@@ -14,13 +16,25 @@
 	let notifyStatus = $state<NotificationPermission | 'unsupported'>('default');
 	let authValid = $state(false);
 	let userEmail = $state('');
+	let accountRole = $state<UserRole | null>(null);
 
 	let rootEl = $state<HTMLDivElement | undefined>(undefined);
 
 	function syncAuth() {
 		authValid = pb().authStore.isValid;
 		userEmail = String(pb().authStore.record?.email ?? '').trim();
+		accountRole = roleFromRecord(pb().authStore.record);
 	}
+
+	const roleBadgeLabel = $derived(
+		accountRole === 'admin'
+			? 'Admin'
+			: accountRole === 'bar'
+				? 'Bar'
+				: accountRole === 'storage'
+					? 'Storage'
+					: ''
+	);
 
 	const showMenu = $derived(authValid && MENU_PATHS.has(page.url.pathname));
 
@@ -128,6 +142,14 @@
 			<div
 				class="absolute left-0 right-auto z-50 mt-2 w-[min(100vw-2rem,20rem)] rounded-xl border border-zinc-600 bg-zinc-900 p-4 shadow-xl md:left-auto md:right-0"
 			>
+				{#if roleBadgeLabel}
+					<div class="mb-3 flex justify-end">
+						<span
+							class="rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs font-medium text-zinc-400"
+							>{roleBadgeLabel}</span
+						>
+					</div>
+				{/if}
 				<label class="mb-1 block text-sm font-medium text-zinc-400" for="um-email">E-Mail</label>
 				<input
 					id="um-email"

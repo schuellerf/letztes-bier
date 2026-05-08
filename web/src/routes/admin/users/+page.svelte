@@ -494,79 +494,6 @@
 
 	<div class="flex flex-col gap-6 lg:flex-row">
 		<div class="min-w-0 flex-1">
-			<h2 class="mb-2 text-xl font-semibold text-zinc-200">New user</h2>
-			<div class="mb-6 flex flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900/30 p-4 sm:flex-row sm:flex-wrap sm:items-center">
-				<div class="flex shrink-0 gap-1 rounded-lg border border-zinc-600 p-1">
-					<button
-						type="button"
-						class="rounded-md px-3 py-1.5 text-sm font-medium {newStaffKind === 'bar'
-							? 'bg-amber-500 text-black'
-							: 'text-zinc-400 hover:text-zinc-200'}"
-						onclick={() => {
-							newStaffKind = 'bar';
-							newStaffTargetId = '';
-							createUserErr = '';
-						}}
-					>
-						Bar
-					</button>
-					<button
-						type="button"
-						class="rounded-md px-3 py-1.5 text-sm font-medium {newStaffKind === 'storage'
-							? 'bg-amber-500 text-black'
-							: 'text-zinc-400 hover:text-zinc-200'}"
-						onclick={() => {
-							newStaffKind = 'storage';
-							newStaffTargetId = '';
-							createUserErr = '';
-						}}
-					>
-						Storage
-					</button>
-				</div>
-				<div class="min-w-[12rem] flex-1">
-					<label class="sr-only" for="new-staff-target">Assign to</label>
-					<select
-						id="new-staff-target"
-						class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-zinc-100"
-						bind:value={newStaffTargetId}
-					>
-						<option value="">Choose {newStaffKind}…</option>
-						{#if newStaffKind === 'bar'}
-							{#each bars as r (r.id)}
-								<option value={r.id}>{typeof r.name === 'string' ? r.name : r.id}</option>
-							{/each}
-						{:else}
-							{#each storages as r (r.id)}
-								<option value={r.id}>{typeof r.name === 'string' ? r.name : r.id}</option>
-							{/each}
-						{/if}
-					</select>
-				</div>
-				<div class="min-w-[10rem] flex-1">
-					<label class="sr-only" for="new-staff-email">Email</label>
-					<input
-						id="new-staff-email"
-						type="email"
-						class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-zinc-100"
-						placeholder="email@…"
-						autocomplete="off"
-						bind:value={newStaffEmail}
-					/>
-				</div>
-				<button
-					type="button"
-					disabled={createUserBusy}
-					class="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-500 disabled:opacity-50"
-					onclick={() => void createStaffUser()}
-				>
-					{createUserBusy ? '…' : 'New user'}
-				</button>
-			</div>
-			{#if createUserErr}
-				<p class="mb-4 text-sm text-red-300" role="alert">{createUserErr}</p>
-			{/if}
-
 			<h2 class="mb-2 text-xl font-semibold text-zinc-200">Staff accounts</h2>
 			<ul class="space-y-1 rounded-xl border border-zinc-700 bg-zinc-900/30">
 				{#each staff as u (u.id)}
@@ -595,6 +522,7 @@
 
 		<div class="w-full min-w-0 flex-1 lg:max-w-md">
 			<h2 class="mb-2 text-xl font-semibold text-zinc-200">Quick-login link</h2>
+			<div class="mb-6 flex flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900/30 p-4 sm:flex-row sm:flex-wrap sm:items-center">
 			{#if !selected}
 				<p class="text-zinc-500">Select a user to generate a sign-in URL and QR code.</p>
 			{:else}
@@ -679,6 +607,82 @@
 						</button>
 					</div>
 				{/if}
+			{/if}
+			</div>
+		</div>
+
+		<div class="w-full min-w-0 flex-1 lg:max-w-md">
+			<h2 class="mb-2 text-xl font-semibold text-zinc-200">New user</h2>
+			<div class="mb-6 flex flex-col gap-3 rounded-xl border border-zinc-700 bg-zinc-900/30 p-4 sm:flex-row sm:flex-wrap sm:items-center">
+				<div class="flex shrink-0 gap-1 rounded-lg border border-zinc-600 p-1">
+					<button
+						type="button"
+						class="rounded-md px-3 py-1.5 text-sm font-medium {newStaffKind === 'bar'
+							? 'bg-amber-500 text-black'
+							: 'text-zinc-400 hover:text-zinc-200'}"
+						onclick={() => {
+							newStaffKind = 'bar';
+							newStaffTargetId = '';
+							createUserErr = '';
+						}}
+					>
+						Bar
+					</button>
+					<button
+						type="button"
+						class="rounded-md px-3 py-1.5 text-sm font-medium {newStaffKind === 'storage'
+							? 'bg-amber-500 text-black'
+							: 'text-zinc-400 hover:text-zinc-200'}"
+						onclick={() => {
+							newStaffKind = 'storage';
+							newStaffTargetId = '';
+							createUserErr = '';
+						}}
+					>
+						Storage
+					</button>
+				</div>
+				<div class="min-w-[12rem] flex-1">
+					<label class="sr-only" for="new-staff-target">Assign to</label>
+					<select
+						id="new-staff-target"
+						class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-zinc-100"
+						bind:value={newStaffTargetId}
+					>
+						<option value="">Choose {newStaffKind}…</option>
+						{#if newStaffKind === 'bar'}
+							{#each bars as r (r.id)}
+								<option value={r.id}>{typeof r.name === 'string' ? r.name : r.id}</option>
+							{/each}
+						{:else}
+							{#each storages as r (r.id)}
+								<option value={r.id}>{typeof r.name === 'string' ? r.name : r.id}</option>
+							{/each}
+						{/if}
+					</select>
+				</div>
+				<div class="min-w-[10rem] flex-1">
+					<label class="sr-only" for="new-staff-email">Email</label>
+					<input
+						id="new-staff-email"
+						type="email"
+						class="w-full rounded-lg border border-zinc-600 bg-zinc-950 px-3 py-2 text-zinc-100"
+						placeholder="email@…"
+						autocomplete="off"
+						bind:value={newStaffEmail}
+					/>
+				</div>
+				<button
+					type="button"
+					disabled={createUserBusy}
+					class="shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-500 disabled:opacity-50"
+					onclick={() => void createStaffUser()}
+				>
+					{createUserBusy ? '…' : 'New user'}
+				</button>
+			</div>
+			{#if createUserErr}
+				<p class="mb-4 text-sm text-red-300" role="alert">{createUserErr}</p>
 			{/if}
 		</div>
 	</div>
