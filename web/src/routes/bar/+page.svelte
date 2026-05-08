@@ -8,7 +8,7 @@
 	} from '$lib/pb_client';
 	import { formatPbClientError, logPbError, pbErrorSuggestsOffline } from '$lib/pb_errors';
 	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
-	import { roleFromRecord, barIdFromRecord } from '$lib/auth';
+	import { roleFromRecord, barIdFromRecord, relationIdFromField } from '$lib/auth';
 	import { getDeviceNickname } from '$lib/device_nickname';
 	import { notifyRequestAccepted, notifyPendingReminder } from '$lib/notifications';
 	import { normalizeItems, parseQuickItems, summarizeItems } from '$lib/items';
@@ -34,6 +34,7 @@
 	let password = $state('');
 	let err = $state('');
 	let listError = $state('');
+	let realtimeError = $state('');
 	let loading = $state(false);
 	let requests = $state<StockRequestRecord[]>([]);
 	let nowMs = $state(Date.now());
@@ -310,22 +311,25 @@
 			unsubRequests();
 			unsubRequests = null;
 		}
+		realtimeError = '';
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar') return;
 		const myBar = barIdFromRecord(pb().authStore.record);
 		if (!myBar) return;
-		unsubRequests = await pb()
-			.collection(COLLECTIONS.requests)
-			.subscribe<StockRequestRecord>(
-				'*',
-				(ev) => {
+		try {
+			unsubRequests = await pb()
+				.collection(COLLECTIONS.requests)
+				.subscribe<StockRequestRecord>('*', (ev) => {
 					const r = ev.record;
+					if (relationIdFromField(r.bar) !== myBar) return;
 					void refreshList();
 					if (ev.action === 'update' && r.status === 'accepted') {
 						notifyRequestAccepted(r.id, r.accepted_by_nickname, summarizeItems(r.items));
 					}
-				},
-				{ filter: barRequestsFilter(myBar) }
-			);
+				});
+		} catch (e) {
+			logPbError('bar.bindRealtime.requests', e);
+			realtimeError = formatPbClientError(e);
+		}
 	}
 
 	async function bindStoragesRealtime() {
@@ -334,11 +338,16 @@
 			unsubStorages = null;
 		}
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'bar') return;
-		unsubStorages = await pb()
-			.collection(COLLECTIONS.storages)
-			.subscribe<StorageHubRecord>('*', () => {
-				void loadStorages();
-			});
+		try {
+			unsubStorages = await pb()
+				.collection(COLLECTIONS.storages)
+				.subscribe<StorageHubRecord>('*', () => {
+					void loadStorages();
+				});
+		} catch (e) {
+			logPbError('bar.bindRealtime.storages', e);
+			realtimeError = formatPbClientError(e);
+		}
 	}
 
 	onMount(() => {
@@ -372,6 +381,7 @@
 				}
 				requests = [];
 				listError = '';
+				realtimeError = '';
 				storagesList = [];
 			}
 		}, true);
@@ -391,7 +401,9 @@
 					await bindStoragesRealtime();
 				}
 			})
-			.catch(() => {});
+			.catch((e) => {
+				logPbError('bar.authRefresh', e);
+			});
 
 		return () => {
 			clearInterval(clock);
@@ -461,6 +473,15 @@
 			role="alert"
 		>
 			{listError}
+		</div>
+	{/if}
+
+	{#if realtimeError}
+		<div
+			class="mb-4 rounded-lg border border-amber-800 bg-amber-950/40 px-4 py-3 text-amber-100"
+			role="status"
+		>
+			Live updates unavailable: {realtimeError}
 		</div>
 	{/if}
 

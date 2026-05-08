@@ -16,18 +16,22 @@ async function showLocalNotification(
 	url: string
 ): Promise<void> {
 	if (!browser) return;
+	const options: NotificationOptions = {
+		body,
+		tag,
+		data: { url },
+		silent: false
+	};
+
 	if ('serviceWorker' in navigator) {
-		try {
-			const reg = await navigator.serviceWorker.ready;
-			await reg.showNotification(title, {
-				body,
-				tag,
-				data: { url },
-				silent: false
-			});
-			return;
-		} catch {
-			/* fallback below */
+		const reg = await navigator.serviceWorker.getRegistration();
+		if (reg?.active) {
+			try {
+				await reg.showNotification(title, options);
+				return;
+			} catch {
+				/* page Notification fallback */
+			}
 		}
 	}
 	new Notification(title, { body, silent: false });

@@ -6,9 +6,24 @@
 
 var RELAY_PUSH_URL = 'http://127.0.0.1:8787/v1/push';
 
+/** JSON field from PocketBase may be a string or non-array in hooks. */
+function coerceItemsArray(raw) {
+	if (Array.isArray(raw)) return raw;
+	if (raw != null && typeof raw === 'string') {
+		try {
+			var p = JSON.parse(raw);
+			return Array.isArray(p) ? p : [];
+		} catch (_) {
+			return [];
+		}
+	}
+	return [];
+}
+
 function summarizeItems(items, maxLen) {
 	maxLen = maxLen || 100;
-	if (!Array.isArray(items)) return '';
+	items = coerceItemsArray(items);
+	if (items.length === 0) return '';
 	var parts = [];
 	for (var i = 0; i < items.length; i++) {
 		var x = items[i];
@@ -23,7 +38,8 @@ function summarizeItems(items, maxLen) {
 
 function itemsAsNotificationBody(items, maxLen) {
 	maxLen = maxLen || 3500;
-	if (!Array.isArray(items)) return '';
+	items = coerceItemsArray(items);
+	if (items.length === 0) return '';
 	var lines = [];
 	for (var i = 0; i < items.length; i++) {
 		var x = items[i];

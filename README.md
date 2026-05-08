@@ -75,6 +75,15 @@ Browsers need the **VAPID public** key at **build** or **dev** time. Set **`PUBL
 
 See [docs/RULES.md](docs/RULES.md). Default collection rules require authenticated users with `role` + `bar` for bar accounts.
 
+### Live dashboard lists (realtime)
+
+Bar and storage UIs refresh when PocketBase emits **realtime** events on the `requests` collection. If lists only update after a manual reload:
+
+1. **Staff assignments:** In Admin, each **bar** user must have **`bar`** set; each **storage** user must have **`storage`** set to the correct **storages** hub (see the staff users table in this README).
+2. **Migration history:** After the squashed schema in `pb_migrations/`, a broken history in `pb_data` can cause odd behavior—use **`migrate history-sync`** / **`migrate down`** as in the paragraph below if you edited migrations or saw failed applies.
+3. **PocketBase version:** Use a current binary (see local dev section; filtered realtime behavior can differ by version). Note the version you run when reporting issues.
+4. **`push_subscriptions`:** The Web Push migration adds a separate collection only; it does **not** change **`requests`** API rules. Push problems are unrelated to list realtime.
+
 ## Infrastructure (OpenTofu)
 
 Examples (adjust variables, state backend, and secrets):

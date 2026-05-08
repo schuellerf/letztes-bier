@@ -9,7 +9,7 @@
 	} from '$lib/pb_client';
 	import { formatPbClientError, logPbError, pbErrorSuggestsOffline } from '$lib/pb_errors';
 	import WrongRoleHint from '$lib/WrongRoleHint.svelte';
-	import { roleFromRecord, storageIdFromRecord } from '$lib/auth';
+	import { roleFromRecord, storageIdFromRecord, relationIdFromField } from '$lib/auth';
 	import { getDeviceNickname } from '$lib/device_nickname';
 	import { notifyNewPendingRequest } from '$lib/notifications';
 	import { parseQuickItems, summarizeItems } from '$lib/items';
@@ -27,6 +27,7 @@
 	let err = $state('');
 	let loading = $state(false);
 	let listError = $state('');
+	let realtimeError = $state('');
 	let requests = $state<StockRequestRecord[]>([]);
 	let busyId = $state<string | null>(null);
 
@@ -189,22 +190,25 @@
 			unsub();
 			unsub = null;
 		}
+		realtimeError = '';
 		if (!pb().authStore.isValid || roleFromRecord(pb().authStore.record) !== 'storage') return;
 		const mySid = storageIdFromRecord(pb().authStore.record);
 		if (!mySid) return;
-		unsub = await pb()
-			.collection(COLLECTIONS.requests)
-			.subscribe<StockRequestRecord>(
-				'*',
-				(ev) => {
+		try {
+			unsub = await pb()
+				.collection(COLLECTIONS.requests)
+				.subscribe<StockRequestRecord>('*', (ev) => {
 					const r = ev.record;
+					if (relationIdFromField(r.storage) !== mySid) return;
 					void refreshList();
 					if (ev.action === 'create' && r.status === 'pending') {
 						notifyNewPendingRequest(r.id, r.bar_name, r.bar_device_nickname, r.items);
 					}
-				},
-				{ filter: storageOpenRequestsFilter(mySid) }
-			);
+				});
+		} catch (e) {
+			logPbError('storage.bindRealtime.requests', e);
+			realtimeError = formatPbClientError(e);
+		}
 	}
 
 	onMount(() => {
@@ -229,6 +233,7 @@
 				}
 				requests = [];
 				listError = '';
+				realtimeError = '';
 				settingsLines = '';
 			}
 		}, true);
@@ -247,7 +252,9 @@
 					await bindRealtime();
 				}
 			})
-			.catch(() => {});
+			.catch((e) => {
+				logPbError('storage.authRefresh', e);
+			});
 
 		return () => {
 			clearInterval(clock);
@@ -325,6 +332,15 @@
 			role="alert"
 		>
 			{listError}
+		</div>
+	{/if}
+
+	{#if realtimeError}
+		<div
+			class="mb-4 rounded-lg border border-amber-800 bg-amber-950/40 px-4 py-3 text-amber-100"
+			role="status"
+		>
+			Live updates unavailable: {realtimeError}
 		</div>
 	{/if}
 

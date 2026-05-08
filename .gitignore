@@ -29,3 +29,14 @@ Thumbs.db
 # IDE (uncomment .vscode if you never commit workspace settings)
 .idea/
 cmd
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyw
+*.pyz
+*.pywz
+*.pyzw
+*.pyzwz
