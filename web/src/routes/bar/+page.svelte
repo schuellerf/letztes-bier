@@ -22,6 +22,8 @@
 
 	const JOIN_BAR_KEY = 'letztesbier_join_bar';
 
+	type SwPushBannerPayload = { title?: string; body?: string; url?: string };
+
 	type CartLine = {
 		cartKey: string;
 		label: string;
@@ -37,8 +39,8 @@
 	let realtimeError = $state('');
 	let remindErr = $state('');
 	let remindOk = $state('');
-	/** In-app line when SW forwards a push because this /bar tab is foreground. */
-	let pushBanner = $state('');
+	/** In-app banner when SW forwards a push because this /bar tab is foreground. */
+	let pushBanner = $state<{ title: string; body?: string } | null>(null);
 	let pushBannerClear: ReturnType<typeof setTimeout> | null = null;
 	let loading = $state(false);
 	let requests = $state<StockRequestRecord[]>([]);
@@ -152,15 +154,16 @@
 		}
 	}
 
-	function flashPushBanner(payload: { title?: string; url?: string }) {
+	function flashPushBanner(payload: SwPushBannerPayload) {
 		const url = typeof payload.url === 'string' ? payload.url : '';
 		if (!url.startsWith('/bar')) return;
 		void refreshList();
 		const t = (payload.title && String(payload.title).trim()) || 'Nachricht';
-		pushBanner = t;
+		const bodyRaw = payload.body != null ? String(payload.body).trim() : '';
+		pushBanner = bodyRaw ? { title: t, body: bodyRaw } : { title: t };
 		if (pushBannerClear) clearTimeout(pushBannerClear);
 		pushBannerClear = setTimeout(() => {
-			pushBanner = '';
+			pushBanner = null;
 			pushBannerClear = null;
 		}, 5000);
 	}
@@ -395,7 +398,7 @@
 		}, 1000);
 
 		const onSwMessage = (ev: MessageEvent) => {
-			const d = ev.data as { type?: string; payload?: { title?: string; url?: string } };
+			const d = ev.data as { type?: string; payload?: SwPushBannerPayload };
 			if (!d || d.type !== 'letztes-bier-push' || !d.payload) return;
 			flashPushBanner(d.payload);
 		};
@@ -533,7 +536,10 @@
 			class="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-emerald-100"
 			role="status"
 		>
-			{pushBanner}
+			<div class="font-medium text-emerald-50">{pushBanner.title}</div>
+			{#if pushBanner.body}
+				<div class="mt-2 whitespace-pre-wrap text-sm text-emerald-100/90">{pushBanner.body}</div>
+			{/if}
 		</div>
 	{/if}
 

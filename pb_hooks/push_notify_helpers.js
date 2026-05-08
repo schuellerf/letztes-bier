@@ -8,6 +8,143 @@ var dbg = require(__hooks + '/push_notify_debug.js');
 
 var RELAY_PUSH_URL = 'http://127.0.0.1:8787/v1/push';
 
+/** Web Push application data limit (octets). Prefer a short notification that arrives over filling 4096. */
+var WEB_PUSH_MAX_PAYLOAD_BYTES = 3072;
+
+/** Soft cap on item lines (chars) before JSON fitting — keeps bodies small by default. */
+var PUSH_ITEMS_BODY_MAX_CHARS = 900;
+
+function utf8ByteLength(str) {
+	if (!str) return 0;
+	var n = 0;
+	for (var i = 0; i < str.length; i++) {
+		var c = str.charCodeAt(i);
+		if (c < 0x80) n += 1;
+		else if (c < 0x800) n += 2;
+		else if (c >= 0xd800 && c <= 0xdbff) {
+			n += 4;
+			i++;
+		} else n += 3;
+	}
+	return n;
+}
+
+/** Largest prefix of str whose UTF-8 length is <= maxBytes, plus … if truncated. */
+function truncateUtf8(str, maxBytes) {
+	if (!str || maxBytes <= 0) return '';
+	if (utf8ByteLength(str) <= maxBytes) return str;
+	var ell = '…';
+	var ellB = utf8ByteLength(ell);
+	var budget = Math.max(0, maxBytes - ellB);
+	if (budget <= 0) return utf8ByteLength(ell) <= maxBytes ? ell : '';
+	var lo = 0;
+	var hi = str.length;
+	var best = '';
+	while (lo <= hi) {
+		var mid = Math.floor((lo + hi) / 2);
+		var slice = str.slice(0, mid);
+		if (utf8ByteLength(slice) <= budget) {
+			best = slice;
+			lo = mid + 1;
+		} else {
+			hi = mid - 1;
+		}
+	}
+	return best + ell;
+}
+
+/** Last resort: drop body, shrink tag/title until JSON fits (delivery over full context). */
+function squeezePushPayload(o, max) {
+	function sz() {
+		return utf8ByteLength(JSON.stringify(o));
+	}
+	if (sz() <= max) return o;
+	if (o.body) delete o.body;
+	while (o.tag && sz() > max) {
+		var tg = String(o.tag);
+		if (utf8ByteLength(tg) <= 48) {
+			delete o.tag;
+		} else {
+			o.tag = truncateUtf8(tg, Math.max(24, Math.floor(utf8ByteLength(tg) * 0.55)));
+		}
+	}
+	while (o.url && sz() > max) {
+		var u = String(o.url);
+		if (utf8ByteLength(u) <= 24) break;
+		o.url = truncateUtf8(u, Math.max(12, Math.floor(utf8ByteLength(u) * 0.5)));
+	}
+	while (sz() > max) {
+		var tit = String(o.title || '');
+		if (utf8ByteLength(tit) <= 24) {
+			o.title = 'Nachricht';
+			break;
+		}
+		o.title = truncateUtf8(tit, Math.max(20, Math.floor(utf8ByteLength(tit) * 0.65)));
+	}
+	if (sz() > max) o.title = 'Letztes Bier';
+	if (sz() > max) {
+		delete o.body;
+		delete o.url;
+		delete o.tag;
+		o.title = 'Letztes Bier';
+	}
+	return o;
+}
+
+/** Shrink title/body/tag/url so the JSON we send fits Web Push limits. */
+function fitWebPushPayloadObj(obj) {
+	if (!obj || typeof obj !== 'object') return obj;
+	var max = WEB_PUSH_MAX_PAYLOAD_BYTES;
+	function jsonSize(x) {
+		return utf8ByteLength(JSON.stringify(x));
+	}
+	var o = {};
+	o.title = obj.title != null ? String(obj.title) : '';
+	if (obj.body != null && String(obj.body).length > 0) o.body = String(obj.body);
+	if (obj.url != null) o.url = String(obj.url);
+	if (obj.tag != null) o.tag = String(obj.tag);
+
+	if (jsonSize(o) <= max) return squeezePushPayload(o, max);
+
+	var bodyStr = o.body ? String(o.body) : '';
+	delete o.body;
+
+	if (jsonSize(o) > max) {
+		var room = Math.max(0, max - jsonSize({ title: '', url: o.url || '', tag: o.tag || '' }));
+		o.title = truncateUtf8(o.title, room);
+		if (jsonSize(o) > max) {
+			room = Math.max(0, max - jsonSize({ title: o.title, url: o.url || '', tag: '' }));
+			o.tag = truncateUtf8(o.tag || '', room);
+		}
+		if (jsonSize(o) > max) {
+			room = Math.max(0, max - jsonSize({ title: o.title, tag: o.tag || '', url: '' }));
+			o.url = truncateUtf8(o.url || '', room);
+		}
+	}
+
+	if (!bodyStr) return squeezePushPayload(o, max);
+
+	var lo = 0;
+	var hi = utf8ByteLength(bodyStr) + 8;
+	var bestBody = '';
+	while (lo <= hi) {
+		var mid = Math.floor((lo + hi) / 2);
+		var piece = truncateUtf8(bodyStr, mid);
+		var trial = { title: o.title };
+		if (o.url) trial.url = o.url;
+		if (o.tag) trial.tag = o.tag;
+		trial.body = piece;
+		if (jsonSize(trial) <= max) {
+			bestBody = piece;
+			lo = mid + 1;
+		} else {
+			hi = mid - 1;
+		}
+	}
+	if (bestBody) o.body = bestBody;
+	return squeezePushPayload(o, max);
+}
+
 /** JSON field from PocketBase may be a string or non-array in hooks. */
 function coerceItemsArray(raw) {
 	if (Array.isArray(raw)) return raw;
@@ -38,8 +175,8 @@ function summarizeItems(items, maxLen) {
 	return s.slice(0, Math.max(0, maxLen - 1)) + '…';
 }
 
+/** maxLen: optional character cap; omit for no pre-truncation (Web Push bytes capped in sendWebPush). */
 function itemsAsNotificationBody(items, maxLen) {
-	maxLen = maxLen || 3500;
 	items = coerceItemsArray(items);
 	if (items.length === 0) return '';
 	var lines = [];
@@ -50,7 +187,9 @@ function itemsAsNotificationBody(items, maxLen) {
 		}
 	}
 	var s = lines.join('\n');
-	if (s.length > maxLen) s = s.slice(0, Math.max(0, maxLen - 1)) + '…';
+	if (maxLen != null && maxLen > 0 && s.length > maxLen) {
+		s = s.slice(0, Math.max(0, maxLen - 1)) + '…';
+	}
 	return s;
 }
 
@@ -90,14 +229,24 @@ function sendWebPush(subRec, payloadObj) {
 		return;
 	}
 
-	var payload = typeof payloadObj === 'string' ? payloadObj : JSON.stringify(payloadObj);
+	var toSend = payloadObj;
+	if (typeof payloadObj === 'object' && payloadObj !== null) {
+		toSend = fitWebPushPayloadObj(payloadObj);
+	} else if (typeof payloadObj === 'string') {
+		if (utf8ByteLength(payloadObj) > WEB_PUSH_MAX_PAYLOAD_BYTES) {
+			toSend = truncateUtf8(payloadObj, WEB_PUSH_MAX_PAYLOAD_BYTES);
+		}
+	}
+	var payload = typeof toSend === 'string' ? toSend : JSON.stringify(toSend);
+	var payloadUtf8 = utf8ByteLength(payload);
 
 	dbg.pushNotifyDebugLog('sendWebPush_relay', {
 		rowId: subRec.id,
 		subscriberId: subRec.getString('subscriber'),
 		ep: dbg.pushEndpointShort(endpoint),
 		relay: RELAY_PUSH_URL,
-		payloadChars: payload.length
+		payloadChars: payload.length,
+		payloadUtf8Bytes: payloadUtf8
 	});
 
 	var res;
@@ -272,7 +421,7 @@ function pushPendingRequestNotifyStorage(app, rec, opts) {
 	var barNick = rec.getString('bar_device_nickname');
 	var baseTitle = storageNotifyTitle(barName, barNick);
 	var title = reminder ? 'Erinnerung · ' + baseTitle : baseTitle;
-	var body = itemsAsNotificationBody(rec.get('items'));
+	var body = itemsAsNotificationBody(rec.get('items'), PUSH_ITEMS_BODY_MAX_CHARS);
 	var payload = {
 		title: title,
 		body: body || undefined,
