@@ -3,3 +3,7 @@
 #
 # DNS must point at this CT; firewall must allow TCP 80 and 443.
 PB_DOMAIN=
+
+# Same value as PUSH_INTERNAL_TOKEN in /etc/default/letztes-bier-push so pb_hooks can POST to the loopback push relay.
+# Do not commit real secrets; set on the appliance after deploy.
+# PUSH_INTERNAL_TOKEN=

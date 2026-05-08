@@ -95,7 +95,22 @@ The image ships **`letztes-bier-push`**: a small **HTTP** relay on **`127.0.0.1:
 
 Because it listens on **loopback**, the WAN firewall does not need an extra port; PocketBase **`pb_hooks`** can **`$http.send`** to **`http://127.0.0.1:8787/v1/push`**. The SPA must still **subscribe** via the browser Push API and store subscription JSON—this relay only sends to an existing subscription.
 
-**Local dev:** build the binary with **`go build -o letztes-bier-push ./cmd/push-api`** and run with the same env vars (not started by **`make run`**).
+### End-to-end Web Push (SPA + PocketBase hooks)
+
+1. **Matching secret**: Set **`PUSH_INTERNAL_TOKEN`** in **`/etc/default/letztes-bier-push`** and the **same value** in **`/etc/default/letztes-bier`** (see the placeholder in that file). Restart **`letztes-bier.service`** after editing so PocketBase picks up the variable for **`pb_hooks`** (`$os.getenv('PUSH_INTERNAL_TOKEN')`).
+2. **VAPID public key in the SPA**: The **relay**’s **`VAPID_PUBLIC_KEY`** must match the browser subscription key. Rebuild the container (or `web` bundle) with **`PUBLIC_VAPID_PUBLIC_KEY`** set to that public value — e.g. **`make build PUBLIC_VAPID_PUBLIC_KEY='...'`** or the **`Containerfile`** build arg. Never put the **private** key in the frontend or in `PUBLIC_*` variables.
+3. **Subscribe**: Signed-in staff open **Account → Enable notifications** (permission + service worker + row in **`push_subscriptions`**).
+4. **Events**: Hook **`pb_hooks/push_notify_requests.pb.js`** notifies **storage** users when a bar creates a **pending** request, and **bar** users when a request becomes **accepted** (pending → accepted).
+
+**Checks and troubleshooting**
+
+- **Relay alive**: on the CT, `curl -sS http://127.0.0.1:8787/healthz` → `ok`.
+- **No rows, no push**: If there is no **`push_subscriptions`** record for the user, or **`PUSH_INTERNAL_TOKEN`** is missing from PocketBase’s environment, nothing is sent (see **`journalctl -u letztes-bier.service -f`** for hook warnings).
+- **Stale subscriptions**: After rotating VAPID keys or rebuilding the SPA with a new public key, users should open **Account** and enable notifications again (or sign out and back in) so the browser re-subscribes.
+- **iOS**: Web Push works only for **Safari 16.4+** when the site is installed on the **Home Screen** as a Web App; otherwise rely on other devices or keep the app open for in-page notifications.
+- **HTTPS**: Push subscriptions require a **secure context** (HTTPS in production, or localhost for dev).
+
+**Local dev:** build the binary with **`go build -o letztes-bier-push ./cmd/push-api`** and run with the same env vars (not started by **`make run`**). For the SPA, set **`PUBLIC_VAPID_PUBLIC_KEY`** when running **`npm run build`** or **`npm run dev`** (see **`web/.env.example`**). Exercise push end-to-end with **`npm run build && npm run preview`** if the dev server’s service worker is awkward.
 
 ## Build a vztmpl tarball
 

@@ -1,4 +1,5 @@
 import { pb } from '$lib/pb_client';
+import { clearPushSubscriptionBestEffort } from '$lib/push_subscription';
 
 const cleanups: (() => void)[] = [];
 
@@ -10,7 +11,7 @@ export function registerRealtimeCleanup(fn: () => void): () => void {
 	};
 }
 
-export function runLogout() {
+export async function runLogout(): Promise<void> {
 	while (cleanups.length > 0) {
 		const fn = cleanups.pop();
 		try {
@@ -19,5 +20,7 @@ export function runLogout() {
 			/* best-effort */
 		}
 	}
-	pb().authStore.clear();
+	const client = pb();
+	await clearPushSubscriptionBestEffort(client);
+	client.authStore.clear();
 }

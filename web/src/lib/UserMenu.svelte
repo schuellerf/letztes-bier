@@ -4,6 +4,7 @@
 	import { pb } from '$lib/pb_client';
 	import { getDeviceNickname, setDeviceNickname } from '$lib/device_nickname';
 	import { ensureNotifyPermission } from '$lib/notifications';
+	import { syncPushSubscriptionToPocketBase } from '$lib/push_subscription';
 	import { runLogout } from '$lib/logout_hooks';
 
 	const MENU_PATHS = new Set(['/bar', '/storage', '/admin/stats', '/admin/users']);
@@ -44,11 +45,18 @@
 		}
 		await ensureNotifyPermission();
 		refreshNotifyStatus();
+		if (Notification.permission === 'granted') {
+			try {
+				await syncPushSubscriptionToPocketBase(pb());
+			} catch (err) {
+				console.error('Push subscription sync failed:', err);
+			}
+		}
 	}
 
-	function handleSignOut() {
+	async function handleSignOut() {
 		close();
-		runLogout();
+		await runLogout();
 		syncAuth();
 	}
 

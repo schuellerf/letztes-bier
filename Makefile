@@ -9,6 +9,8 @@ DIST_DIR ?= $(CURDIR)/dist
 TEMPLATE_BASENAME ?= letztes-bier_ct-template
 # Optional: bake Proxmox LXC autocert hostname into /etc/default/letztes-bier at image build, e.g. `make proxmox-ct PB_DOMAIN=host.example.com`
 PB_DOMAIN ?=
+# Optional: embed the Web Push VAPID *public* key in the SPA at image build (must match VAPID_PUBLIC_KEY on letztes-bier-push).
+PUBLIC_VAPID_PUBLIC_KEY ?=
 
 ifeq ($(ENGINE),podman)
 VOL_LABEL := :Z
@@ -27,7 +29,7 @@ help:
 	@echo "  make clean           - remove web/build, web/.svelte-kit; drop $(IMAGE_TAG) (keeps pb_data/)"
 	@echo "  make proxmox-ct      - gzip rootfs tarball for Proxmox vztmpl -> $(DIST_DIR)/"
 	@echo "  make clean-dist      - remove $(DIST_DIR)/"
-	@echo "Variables: ENGINE=$(ENGINE) IMAGE_TAG=$(IMAGE_TAG) PORT=$(PORT) PB_DOMAIN=(optional, image build)"
+	@echo "Variables: ENGINE=$(ENGINE) IMAGE_TAG=$(IMAGE_TAG) PORT=$(PORT) PB_DOMAIN=(optional, image build) PUBLIC_VAPID_PUBLIC_KEY=(optional, SPA Web Push)"
 
 # Host dir for bind-mount — only required by `run`, not image `build`.
 pb_data:
@@ -36,6 +38,7 @@ pb_data:
 build:
 	$(ENGINE) build -f $(CONTAINERFILE) -t $(IMAGE_TAG) \
 		--build-arg PB_DOMAIN="$(PB_DOMAIN)" \
+		--build-arg PUBLIC_VAPID_PUBLIC_KEY="$(PUBLIC_VAPID_PUBLIC_KEY)" \
 		.
 
 run: build | pb_data

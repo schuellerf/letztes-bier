@@ -511,28 +511,6 @@
 			<ul class="mt-4 space-y-2 border-t border-zinc-700 pt-4 text-sm">
 				{#each cart as line (line.cartKey)}
 					<li class="flex items-center gap-2 text-zinc-200">
-						<button
-							type="button"
-							class="shrink-0 rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-red-300"
-							aria-label="Remove {line.displayLabel}"
-							onclick={() => removeCartLine(line.cartKey)}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="size-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2"
-								aria-hidden="true"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-								/>
-							</svg>
-						</button>
 						<span class="min-w-0 flex-1">{line.displayLabel}</span>
 						<span class="flex shrink-0 items-center gap-0.5 tabular-nums text-amber-300">
 							<button
@@ -560,6 +538,28 @@
 								></span>
 							{/if}
 							<span class="min-w-[2ch] text-right">{line.qty}&times;</span>
+						<button
+							type="button"
+							class="shrink-0 rounded p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-red-300"
+							aria-label="Remove {line.displayLabel}"
+							onclick={() => removeCartLine(line.cartKey)}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="size-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								stroke-width="2"
+								aria-hidden="true"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+								/>
+							</svg>
+						</button>
 						</span>
 					</li>
 				{/each}

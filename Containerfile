@@ -2,6 +2,8 @@
 
 FROM node:22-alpine AS web
 WORKDIR /src
+ARG PUBLIC_VAPID_PUBLIC_KEY=
+ENV PUBLIC_VAPID_PUBLIC_KEY=$PUBLIC_VAPID_PUBLIC_KEY
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web/ ./

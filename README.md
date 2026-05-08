@@ -55,7 +55,7 @@ mkdir -p pb_data
 
 After the SPA is built once (`cd web && npm run build`), you can point `--publicDir` at `web/build`.
 
-Schema is applied from a **single** squashed file in `pb_migrations/`. If you ever had an older multi-step migration history in `./pb_data`, delete that directory (or reset the DB) so PocketBase runs the initial migration on a clean database.
+The main schema lives in a **squashed** migration under `pb_migrations/`; **incremental** migrations (for example Web Push **`push_subscriptions`**) apply afterward on a fresh or existing database when you **`serve`** with that directory. If you ever had an incompatible migration history in `./pb_data`, delete that directory (or reset the DB) so PocketBase can apply migrations from scratch.
 
 Terminal 2 — Vite dev server (proxies `/api` to PocketBase):
 
@@ -64,6 +64,10 @@ cd web && npm install && npm run dev
 ```
 
 Open the URL Vite prints; API calls go to PocketBase on `8090` via proxy.
+
+### Web Push (optional)
+
+Browsers need the **VAPID public** key at **build** or **dev** time. Set **`PUBLIC_VAPID_PUBLIC_KEY`** in the environment (see **`web/.env.example`**); it must match **`VAPID_PUBLIC_KEY`** on **`letztes-bier-push`**. Image builds: **`make build PUBLIC_VAPID_PUBLIC_KEY='...'`**. PocketBase **`pb_hooks`** use **`PUSH_INTERNAL_TOKEN`** from **`/etc/default/letztes-bier`**, matching the push service — see [docs/PROXMOX.md](docs/PROXMOX.md) for the full checklist.
 
 ## Public vs LAN
 
