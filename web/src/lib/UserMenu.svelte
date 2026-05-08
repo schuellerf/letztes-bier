@@ -142,15 +142,15 @@
 			<div
 				class="absolute left-0 right-auto z-50 mt-2 w-[min(100vw-2rem,20rem)] rounded-xl border border-zinc-600 bg-zinc-900 p-4 shadow-xl md:left-auto md:right-0"
 			>
-				{#if roleBadgeLabel}
-					<div class="mb-3 flex justify-end">
+				<div class="mb-1 flex items-center justify-between gap-3">
+					<label class="text-sm font-medium text-zinc-400" for="um-email">E-Mail</label>
+					{#if roleBadgeLabel}
 						<span
-							class="rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs font-medium text-zinc-400"
+							class="shrink-0 rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs font-medium text-zinc-400"
 							>{roleBadgeLabel}</span
 						>
-					</div>
-				{/if}
-				<label class="mb-1 block text-sm font-medium text-zinc-400" for="um-email">E-Mail</label>
+					{/if}
+				</div>
 				<input
 					id="um-email"
 					type="email"
