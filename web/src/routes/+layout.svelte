@@ -2,11 +2,22 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { onMount } from 'svelte';
-	import { pb, getPbUrl } from '$lib/pb_client';
+	import type { RecordModel } from 'pocketbase';
+	import { pb } from '$lib/pb_client';
 	import { connection } from '$lib/connection.svelte';
+	import { homePathForRole, roleFromRecord } from '$lib/auth';
 	import UserMenu from '$lib/UserMenu.svelte';
+	import DisclosureChevron from '$lib/DisclosureChevron.svelte';
 
 	let { children } = $props();
+
+	let authValid = $state(false);
+	let authRecord = $state<RecordModel | null>(null);
+	let navDrawerOpen = $state(false);
+
+	const titleHref = $derived(
+		authValid ? homePathForRole(roleFromRecord(authRecord)) : '/'
+	);
 
 	onMount(() => {
 		let alive = true;
@@ -76,6 +87,20 @@
 			document.removeEventListener('visibilitychange', onVisible);
 		};
 	});
+
+	onMount(() => {
+		let prevValid = false;
+		function syncLayoutAuth() {
+			const v = pb().authStore.isValid;
+			if (v && !prevValid) navDrawerOpen = false;
+			prevValid = v;
+			authValid = v;
+			authRecord = pb().authStore.record ?? null;
+		}
+		syncLayoutAuth();
+		const off = pb().authStore.onChange(() => syncLayoutAuth(), true);
+		return () => off();
+	});
 </script>
 
 <svelte:head>
@@ -97,22 +122,66 @@
 		</div>
 	{/if}
 	<header class="border-b border-zinc-800 bg-zinc-900/80 px-4 py-3 backdrop-blur">
-		<nav class="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-4 text-lg">
-			<div class="flex flex-wrap items-center gap-4">
-				<a class="font-semibold text-amber-400 hover:text-amber-300" href="/">Letztes Bier</a>
-				<a class="text-zinc-400 hover:text-zinc-200" href="/bar">Bar</a>
-				<a class="text-zinc-400 hover:text-zinc-200" href="/storage">Lager</a>
-				<a class="text-zinc-400 hover:text-zinc-200" href="/admin/stats">Stats</a>
-				<a class="text-zinc-400 hover:text-zinc-200" href="/admin/users">Users</a>
-				<a class="text-zinc-400 hover:text-zinc-200" href="/_/">Admin</a>
-			</div>
-			<UserMenu />
+		<nav
+			class="mx-auto flex max-w-3xl flex-col gap-3 text-lg"
+			aria-label="Hauptnavigation"
+		>
+			{#if authValid}
+				<div class="flex w-full flex-wrap items-center gap-2">
+					<a
+						class="font-semibold text-amber-400 hover:text-amber-300"
+						href={titleHref}
+					>Letztes Bier</a>
+					<button
+						type="button"
+						class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg border border-zinc-600 bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+						aria-expanded={navDrawerOpen}
+						aria-controls="site-nav-drawer"
+						onclick={() => {
+							navDrawerOpen = !navDrawerOpen;
+						}}
+					>
+						<span class="sr-only">
+							{navDrawerOpen ? 'Menü ausblenden' : 'Menü anzeigen'}
+						</span>
+						<DisclosureChevron open={navDrawerOpen} />
+					</button>
+				</div>
+				{#if navDrawerOpen}
+					<div
+						id="site-nav-drawer"
+						class="flex flex-col gap-3 border-t border-zinc-800 pt-3 md:flex-row md:flex-wrap md:items-start md:justify-between"
+					>
+						<div class="flex flex-wrap items-center gap-4">
+							<a class="text-zinc-400 hover:text-zinc-200" href="/bar">Bar</a>
+							<a class="text-zinc-400 hover:text-zinc-200" href="/storage">Lager</a>
+							<a class="text-zinc-400 hover:text-zinc-200" href="/admin/stats">Stats</a>
+							<a class="text-zinc-400 hover:text-zinc-200" href="/admin/users">Users</a>
+							<a class="text-zinc-400 hover:text-zinc-200" href="/_/">Admin</a>
+						</div>
+						<UserMenu />
+					</div>
+				{/if}
+			{:else}
+				<div
+					class="flex w-full flex-wrap items-center justify-between gap-4 md:flex-nowrap"
+				>
+					<div class="flex flex-wrap items-center gap-4">
+						<a class="font-semibold text-amber-400 hover:text-amber-300" href="/"
+							>Letztes Bier</a
+						>
+						<a class="text-zinc-400 hover:text-zinc-200" href="/bar">Bar</a>
+						<a class="text-zinc-400 hover:text-zinc-200" href="/storage">Lager</a>
+						<a class="text-zinc-400 hover:text-zinc-200" href="/admin/stats">Stats</a>
+						<a class="text-zinc-400 hover:text-zinc-200" href="/admin/users">Users</a>
+						<a class="text-zinc-400 hover:text-zinc-200" href="/_/">Admin</a>
+					</div>
+					<UserMenu />
+				</div>
+			{/if}
 		</nav>
 	</header>
 	<main class="mx-auto w-full max-w-3xl flex-1 px-4 py-6">
 		{@render children()}
 	</main>
-	<!--<footer class="border-t border-zinc-800 bg-zinc-900/60 px-4 py-3 text-center text-sm text-zinc-500">
-		Server: <code class="text-zinc-400">{getPbUrl() || '(same origin)'}</code>
-	</footer>-->
 </div>

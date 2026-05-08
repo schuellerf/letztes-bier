@@ -22,7 +22,7 @@ export function storageIdFromRecord(record: RecordModel | undefined | null): str
 
 /** Dashboard path after auth, by app role on the users record. */
 export function homePathForRole(role: UserRole | null): string {
-	if (role === 'admin') return '/admin/stats';
+	if (role === 'admin') return '/admin/users';
 	if (role === 'bar') return '/bar';
 	if (role === 'storage') return '/storage';
 	return '/';

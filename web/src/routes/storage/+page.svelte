@@ -18,6 +18,7 @@
 	import type { RecordModel } from 'pocketbase';
 	import type { StockRequestRecord, StorageHubRecord } from '$lib/types';
 	import { connection } from '$lib/connection.svelte';
+	import DisclosureChevron from '$lib/DisclosureChevron.svelte';
 
 	const JOIN_STORAGE_KEY = 'letztesbier_join_storage';
 
@@ -414,9 +415,10 @@
 			bind:open={doneOpen}
 		>
 			<summary
-				class="cursor-pointer select-none list-none px-4 py-3 text-xl font-medium text-zinc-300"
+				class="flex min-h-12 cursor-pointer select-none list-none items-center gap-2 px-4 py-3 text-xl font-medium text-zinc-300"
 			>
-				{doneOpen ? '⏷' : '⏵'}&nbsp;Erledigt ({doneRequestsSorted.length})
+				<DisclosureChevron open={doneOpen} />
+				<span>Erledigt ({doneRequestsSorted.length})</span>
 			</summary>
 			<ul class="space-y-4 border-t border-zinc-700 px-4 pb-4 pt-4">
 				{#each doneRequestsSorted as r}
@@ -459,9 +461,10 @@
 		bind:open={settingsOpen}
 	>
 		<summary
-			class="cursor-pointer select-none list-none px-6 py-3 text-xl font-semibold text-zinc-200"
+			class="flex min-h-12 cursor-pointer select-none list-none items-center gap-2 px-6 py-3 text-xl font-semibold text-zinc-200"
 		>
-			{settingsOpen ? '⏷' : '⏵'} Einstellungen
+			<DisclosureChevron open={settingsOpen} />
+			<span>Einstellungen</span>
 		</summary>
 		<div class="space-y-4 border-t border-zinc-700 px-6 pb-6 pt-4">
 			<p class="text-sm text-zinc-500">

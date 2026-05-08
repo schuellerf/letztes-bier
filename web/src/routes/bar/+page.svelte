@@ -17,6 +17,8 @@
 	import type { RecordModel } from 'pocketbase';
 	import type { StockRequestRecord, StorageHubRecord } from '$lib/types';
 	import { connection } from '$lib/connection.svelte';
+	import DisclosureChevron from '$lib/DisclosureChevron.svelte';
+	import ChevronDirection from '$lib/ChevronDirection.svelte';
 
 	const JOIN_BAR_KEY = 'letztesbier_join_bar';
 
@@ -207,6 +209,16 @@
 
 	function removeCartLine(cartKey: string) {
 		cart = cart.filter((l) => l.cartKey !== cartKey);
+	}
+
+	function bumpCartQty(cartKey: string, delta: 1 | -1) {
+		const idx = cart.findIndex((l) => l.cartKey === cartKey);
+		if (idx < 0) return;
+		const nextQty = cart[idx].qty + delta;
+		if (nextQty < 1) return;
+		const next = [...cart];
+		next[idx] = { ...next[idx], qty: nextQty };
+		cart = next;
 	}
 
 	function triggerNotify(r: StockRequestRecord) {
@@ -522,14 +534,32 @@
 							</svg>
 						</button>
 						<span class="min-w-0 flex-1">{line.displayLabel}</span>
-						<span class="flex shrink-0 items-center gap-2 tabular-nums text-amber-300">
+						<span class="flex shrink-0 items-center gap-0.5 tabular-nums text-amber-300">
+							<button
+								type="button"
+								disabled={line.qty <= 1 || loading}
+								class="touch-manipulation border-0 bg-transparent p-1 text-amber-300 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-25"
+								aria-label="Menge verringern"
+								onclick={() => bumpCartQty(line.cartKey, -1)}
+							>
+								<ChevronDirection direction="down" />
+							</button>
+							<button
+								type="button"
+								disabled={loading}
+								class="touch-manipulation border-0 bg-transparent p-1 text-amber-300 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-25"
+								aria-label="Menge erhöhen"
+								onclick={() => bumpCartQty(line.cartKey, 1)}
+							>
+								<ChevronDirection direction="up" />
+							</button>
 							{#if loading}
 								<span
 									class="size-4 shrink-0 animate-spin rounded-full border-2 border-amber-400 border-t-transparent"
 									aria-hidden="true"
 								></span>
 							{/if}
-							{line.qty}&times;
+							<span class="min-w-[2ch] text-right">{line.qty}&times;</span>
 						</span>
 					</li>
 				{/each}
@@ -609,9 +639,10 @@
 		{#if doneRequestsSorted.length > 0}
 			<details class="mt-4 rounded-xl border border-zinc-700 bg-zinc-900/20 [&_summary::-webkit-details-marker]:hidden" bind:open={doneOpen}>
 				<summary
-					class="cursor-pointer select-none list-none px-4 py-3 text-lg font-medium text-zinc-300"
+					class="flex min-h-12 cursor-pointer select-none list-none items-center gap-2 px-4 py-3 text-lg font-medium text-zinc-300"
 				>
-					{doneOpen ? '⏷' : '⏵'}&nbsp;Erledigt ({doneRequestsSorted.length})
+					<DisclosureChevron open={doneOpen} />
+					<span>Erledigt ({doneRequestsSorted.length})</span>
 				</summary>
 				<ul class="space-y-3 border-t border-zinc-700 px-4 pb-4 pt-3">
 					{#each doneRequestsSorted as r}
