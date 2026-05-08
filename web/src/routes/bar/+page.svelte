@@ -21,6 +21,7 @@
 	import { connection } from '$lib/connection.svelte';
 	import DisclosureChevron from '$lib/DisclosureChevron.svelte';
 	import ChevronDirection from '$lib/ChevronDirection.svelte';
+	import { PRESET_QUICK_SELECT_SELECTED, storageHubAccent } from '$lib/storage_hub_colors';
 
 	const JOIN_BAR_KEY = 'letztesbier_join_bar';
 	const ADMIN_BAR_KEY = 'letztesbier_admin_bar';
@@ -647,11 +648,12 @@
 		<div class="mb-3 flex flex-wrap gap-2">
 			{#each presetButtons as p (p.cartKey)}
 				{@const inCart = cart.some((line) => line.cartKey === p.cartKey)}
+				{@const hubAccent = storageHubAccent(storagesList, p.storageId)}
 				<button
 					type="button"
 					class="rounded-lg border px-2.5 py-1.5 text-sm {inCart
-						? 'border-sky-500 bg-sky-800 text-sky-100 shadow-md shadow-sky-950/50'
-						: 'border-zinc-600 bg-zinc-800 hover:bg-zinc-700'}"
+						? PRESET_QUICK_SELECT_SELECTED
+						: hubAccent.presetIdle}"
 					onclick={() => togglePreset(p)}
 				>
 					{p.displayLabel}
@@ -688,7 +690,8 @@
 		{#if cart.length > 0}
 			<ul class="mt-4 space-y-2 border-t border-zinc-700 pt-4 text-sm">
 				{#each cart as line (line.cartKey)}
-					<li class="flex items-center gap-2 text-zinc-200">
+					{@const lineAccent = storageHubAccent(storagesList, line.storageId)}
+					<li class="flex items-center gap-2 py-0.5 text-zinc-200 {lineAccent.cartLine}">
 						<span class="min-w-0 flex-1">{line.displayLabel}</span>
 						<span class="flex shrink-0 items-center gap-0.5 tabular-nums text-amber-300">
 							<button
@@ -754,6 +757,23 @@
 			>
 				Abschicken
 			</button>
+			{#if storagesList.length > 0}
+				<div
+					class="mt-2 flex flex-wrap gap-1.5"
+					role="list"
+					aria-label="Lager"
+				>
+					{#each storagesList as hub (hub.id)}
+						{@const leg = storageHubAccent(storagesList, hub.id)}
+						<span
+							role="listitem"
+							class="inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-xs font-medium {leg.legendBubble}"
+						>
+							{hub.name}
+						</span>
+					{/each}
+				</div>
+			{/if}
 		</form>
 	</section>
 
