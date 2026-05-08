@@ -1,5 +1,6 @@
 <script lang="ts">
 	import './layout.css';
+	import appleTouchIcon from '$lib/assets/apple-touch-icon.png';
 	import favicon from '$lib/assets/favicon.svg';
 	import { onMount } from 'svelte';
 	import type { RecordModel } from 'pocketbase';
@@ -104,7 +105,8 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" href={favicon} type="image/svg+xml" />
+	<link rel="apple-touch-icon" href={appleTouchIcon} />
 	<title>Letztes Bier</title>
 </svelte:head>
 

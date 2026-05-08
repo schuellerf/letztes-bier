@@ -1,7 +1,10 @@
 /// <reference path="../pb_data/types.d.ts" />
 
-/** New pending request → notify storage staff for that hub. */
-onRecordAfterCreateSuccess((e) => {
+/** New pending request → notify storage staff for that hub.
+ * Use collection-scoped hook: onRecordAfterCreateSuccess on `requests` cancels
+ * clients' realtime connections (PB 0.37.x); onCollectionAfterCreateSuccess does not.
+ */
+onCollectionAfterCreateSuccess((e) => {
 	var n = require(__hooks + '/push_notify_helpers.js');
 	try {
 		var rec = e.record;
@@ -44,7 +47,7 @@ onRecordAfterCreateSuccess((e) => {
 }, 'requests');
 
 /** Pending → accepted: notify bar staff. */
-onRecordAfterUpdateSuccess((e) => {
+onCollectionAfterUpdateSuccess((e) => {
 	var n = require(__hooks + '/push_notify_helpers.js');
 	try {
 		var rec = e.record;

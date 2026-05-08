@@ -82,7 +82,7 @@ Bar and storage UIs refresh when PocketBase emits **realtime** events on the `re
 1. **Staff assignments:** In Admin, each **bar** user must have **`bar`** set; each **storage** user must have **`storage`** set to the correct **storages** hub (see the staff users table in this README).
 2. **Migration history:** After the squashed schema in `pb_migrations/`, a broken history in `pb_data` can cause odd behavior—use **`migrate history-sync`** / **`migrate down`** as in the paragraph below if you edited migrations or saw failed applies.
 3. **PocketBase version:** Use a current binary (see local dev section; filtered realtime behavior can differ by version). Note the version you run when reporting issues.
-4. **`push_subscriptions`:** The Web Push migration adds a separate collection only; it does **not** change **`requests`** API rules. Push problems are unrelated to list realtime.
+4. **`pb_hooks` + push:** **`pb_hooks/push_notify_requests.pb.js`** must use **`onCollectionAfter*`** hooks on **`requests`**, not **`onRecordAfter*`**, or PocketBase **0.37.x** can drop **`requests/*` realtime** for connected clients ([`docs/requests-realtime-investigation.md`](docs/requests-realtime-investigation.md)). The **`push_subscriptions`** collection itself does **not** change **`requests`** list rules—only migrations do.
 
 ## Infrastructure (OpenTofu)
 

@@ -100,7 +100,7 @@ Because it listens on **loopback**, the WAN firewall does not need an extra port
 1. **Matching secret**: Set **`PUSH_INTERNAL_TOKEN`** in **`/etc/default/letztes-bier-push`** and the **same value** in **`/etc/default/letztes-bier`** (see the placeholder in that file). Restart **`letztes-bier.service`** after editing so PocketBase picks up the variable for **`pb_hooks`** (`$os.getenv('PUSH_INTERNAL_TOKEN')`).
 2. **VAPID public key in the SPA**: The **relay**’s **`VAPID_PUBLIC_KEY`** must match the browser subscription key. Rebuild the container (or `web` bundle) with **`PUBLIC_VAPID_PUBLIC_KEY`** set to that public value — e.g. **`make build PUBLIC_VAPID_PUBLIC_KEY='...'`** or the **`Containerfile`** build arg. Never put the **private** key in the frontend or in `PUBLIC_*` variables.
 3. **Subscribe**: Signed-in staff open **Account → Enable notifications** (permission + service worker + row in **`push_subscriptions`**).
-4. **Events**: Hook **`pb_hooks/push_notify_requests.pb.js`** notifies **storage** users when a bar creates a **pending** request, and **bar** users when a request becomes **accepted** (pending → accepted).
+4. **Events**: Hook **`pb_hooks/push_notify_requests.pb.js`** notifies **storage** users when a bar creates a **pending** request, and **bar** users when a request becomes **accepted** (pending → accepted). The handlers use **`onCollectionAfterCreateSuccess`** / **`onCollectionAfterUpdateSuccess`** (not the record-scoped `onRecordAfter*Success` variants): on PocketBase **0.37.x**, `onRecordAfterCreateSuccess` / `onRecordAfterUpdateSuccess` on **`requests`** can cancel active **`requests/*` realtime (SSE)** subscribers; the collection-scoped hooks preserve live updates in the SPA while still sending Web Push.
 
 **Checks and troubleshooting**
 
@@ -109,6 +109,7 @@ Because it listens on **loopback**, the WAN firewall does not need an extra port
 - **Stale subscriptions**: After rotating VAPID keys or rebuilding the SPA with a new public key, users should open **Account** and enable notifications again (or sign out and back in) so the browser re-subscribes.
 - **iOS**: Web Push works only for **Safari 16.4+** when the site is installed on the **Home Screen** as a Web App; otherwise rely on other devices or keep the app open for in-page notifications.
 - **HTTPS**: Push subscriptions require a **secure context** (HTTPS in production, or localhost for dev).
+- **Realtime + push**: With staff signed in on **storage** or **bar**, open the app and confirm the request list **updates without refresh** when another role creates or accepts a request; if not, check **`journalctl -u letztes-bier.service`** for hook errors and that **`--hooksDir`** still points at the repo’s **`pb_hooks`**.
 
 **Local dev:** build the binary with **`go build -o letztes-bier-push ./cmd/push-api`** and run with the same env vars (not started by **`make run`**). For the SPA, set **`PUBLIC_VAPID_PUBLIC_KEY`** when running **`npm run build`** or **`npm run dev`** (see **`web/.env.example`**). Exercise push end-to-end with **`npm run build && npm run preview`** if the dev server’s service worker is awkward.
 

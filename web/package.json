@@ -11,7 +11,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"favicon:raster": "magick -size 180x180 xc:'#18181b' \\( src/lib/assets/favicon.svg -resize 152x152 \\) -gravity center -composite src/lib/assets/apple-touch-icon.png"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.10",
