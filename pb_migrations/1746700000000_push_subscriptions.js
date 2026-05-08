@@ -7,14 +7,14 @@ migrate(
 		const pushSubscriptions = new Collection({
 			type: 'base',
 			name: 'push_subscriptions',
-			listRule: '@request.auth.id != "" && user = @request.auth.id',
-			viewRule: '@request.auth.id != "" && user = @request.auth.id',
-			createRule: '@request.auth.id != "" && user = @request.auth.id',
-			updateRule: '@request.auth.id != "" && user = @request.auth.id',
-			deleteRule: '@request.auth.id != "" && user = @request.auth.id',
+			listRule: '@request.auth.id != "" && owner = @request.auth.id',
+			viewRule: '@request.auth.id != "" && owner = @request.auth.id',
+			createRule: '@request.auth.id != "" && owner = @request.auth.id',
+			updateRule: '@request.auth.id != "" && owner = @request.auth.id',
+			deleteRule: '@request.auth.id != "" && owner = @request.auth.id',
 			fields: [
 				new RelationField({
-					name: 'user',
+					name: 'owner',
 					required: true,
 					maxSelect: 1,
 					collectionId: users.id,

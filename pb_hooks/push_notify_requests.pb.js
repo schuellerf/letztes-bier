@@ -92,7 +92,7 @@ function pushForUserIds(app, userIds, payloadObj) {
 
 		let subs;
 		try {
-			subs = app.findRecordsByFilter('push_subscriptions', 'user = {:uid}', '', 50, 0, { uid: uid });
+			subs = app.findRecordsByFilter('push_subscriptions', 'owner = {:uid}', '', 50, 0, { uid: uid });
 		} catch (err) {
 			console.warn('push_notify: list subscriptions:', err);
 			continue;

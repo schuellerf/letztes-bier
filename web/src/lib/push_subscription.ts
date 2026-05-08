@@ -62,7 +62,7 @@ export async function syncPushSubscriptionToPocketBase(pb: PocketBase): Promise<
 		}
 	} catch {
 		await pb.collection('push_subscriptions').create({
-			user: pb.authStore.record.id,
+			owner: pb.authStore.record.id,
 			endpoint,
 			p256dh,
 			auth,
