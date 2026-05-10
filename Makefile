@@ -11,6 +11,10 @@ TEMPLATE_BASENAME ?= letztes-bier_ct-template
 PB_DOMAIN ?=
 # Optional: embed the Web Push VAPID *public* key in the SPA at image build (must match VAPID_PUBLIC_KEY on letztes-bier-push).
 PUBLIC_VAPID_PUBLIC_KEY ?=
+# Optional: fixed API origin in the SPA (omit when PocketBase is same-origin, see web/.env.example).
+PUBLIC_POCKETBASE_URL ?=
+# Output for `make app-bundle` — gzip tarball of web/build contents for copying to `/pb/pb_public` on a CT.
+APP_BUNDLE_TGZ ?= $(DIST_DIR)/lb-web-pb_public.tgz
 
 ifeq ($(ENGINE),podman)
 VOL_LABEL := :Z
@@ -20,16 +24,17 @@ endif
 
 .DEFAULT_GOAL := help
 
-.PHONY: help pb_data build run clean proxmox-ct-image proxmox-ct clean-dist
+.PHONY: help pb_data build run clean proxmox-ct-image proxmox-ct clean-dist app-bundle
 
 help:
 	@echo "Targets:"
 	@echo "  make build           - build $(IMAGE_TAG) from $(CONTAINERFILE)"
 	@echo "  make run             - ensure pb_data/, build, then HTTP on port $(PORT) (dev entrypoint)"
 	@echo "  make clean           - remove web/build, web/.svelte-kit; drop $(IMAGE_TAG) (keeps pb_data/)"
+	@echo "  make app-bundle      - npm build in web/, pack -> $(APP_BUNDLE_TGZ) (Proxmox /pb/pb_public drop-in)"
 	@echo "  make proxmox-ct      - gzip rootfs tarball for Proxmox vztmpl -> $(DIST_DIR)/"
 	@echo "  make clean-dist      - remove $(DIST_DIR)/"
-	@echo "Variables: ENGINE=$(ENGINE) IMAGE_TAG=$(IMAGE_TAG) PORT=$(PORT) PB_DOMAIN=(optional, image build) PUBLIC_VAPID_PUBLIC_KEY=(optional, SPA Web Push)"
+	@echo "Variables: ENGINE=$(ENGINE) IMAGE_TAG=$(IMAGE_TAG) PORT=$(PORT) PB_DOMAIN=(optional, image build) PUBLIC_VAPID_PUBLIC_KEY / PUBLIC_POCKETBASE_URL=(optional, SPA) APP_BUNDLE_TGZ=(optional, app-bundle output path)"
 
 # Host dir for bind-mount — only required by `run`, not image `build`.
 pb_data:
@@ -54,6 +59,14 @@ run: build | pb_data
 clean:
 	rm -rf web/build web/.svelte-kit
 	-$(ENGINE) rmi $(IMAGE_TAG) 2>/dev/null || true
+
+app-bundle:
+	@mkdir -p "$(DIST_DIR)"
+	cd web && npm ci && \
+		PUBLIC_POCKETBASE_URL="$(PUBLIC_POCKETBASE_URL)" \
+		PUBLIC_VAPID_PUBLIC_KEY="$(PUBLIC_VAPID_PUBLIC_KEY)" \
+		npm run build
+	tar czf "$(APP_BUNDLE_TGZ)" --numeric-owner --owner=0 --group=0 -C web/build .
 
 proxmox-ct: build
 	@STAMP=$$(date +%Y%m%d_%H%M%S); \

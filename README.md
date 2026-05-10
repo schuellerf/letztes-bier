@@ -16,7 +16,7 @@ Use **`make ENGINE=docker run`** if you use Docker instead of Podman (volume **`
 
 Open `http://localhost:8888/` by default (`PORT=8090` if you prefer **8090** on the host). Admin UI: `http://localhost:8888/_/` (same port).
 
-Other targets: **`make build`**, **`make clean`** (removes `web/build`, `web/.svelte-kit`, and the local image—**not** `pb_data/`), **`make proxmox-ct`** (gzip rootfs tarball for Proxmox `vztmpl` into `dist/`; see [docs/PROXMOX.md](docs/PROXMOX.md)).
+Other targets: **`make build`**, **`make clean`** (removes `web/build`, `web/.svelte-kit`, and the local image—**not** `pb_data/`), **`make app-bundle`** (gzip SPA tarball for **`/pb/pb_public`** on an existing CT; see Infrastructure below), **`make proxmox-ct`** (gzip rootfs tarball for Proxmox `vztmpl` into `dist/`; see [docs/PROXMOX.md](docs/PROXMOX.md)).
 
 To exercise **autocert** locally, run the image without overriding the entrypoint, set `-e PB_DOMAIN=your.hostname`, and publish **80** and **443** (DNS for that hostname must point at your machine).
 
@@ -93,6 +93,31 @@ Examples (adjust variables, state backend, and secrets):
 
 Neither path publishes a container registry by default; build and push `letztes-bier:latest` (e.g. `podman build -f Containerfile -t letztes-bier:latest .`), or copy this repo to the VM and build there. For a **Proxmox CT template tarball**, use **`make proxmox-ct`** ([docs/PROXMOX.md](docs/PROXMOX.md)).
 
+### Proxmox: deploy only the web app (`/pb/pb_public`)
+
+Build a gzip tarball of the static SPA (same tree PocketBase serves as `pb_public`):
+
+```bash
+make app-bundle
+# optional, same as image/Containerfile build args:
+# make app-bundle PUBLIC_POCKETBASE_URL='https://example.com' PUBLIC_VAPID_PUBLIC_KEY='...'
+```
+
+This writes **`dist/lb-web-pb_public.tgz`** by default (override with **`APP_BUNDLE_TGZ=/path/to/out.tgz`**).
+
+The CT image includes **`tar`** (see `Containerfile`). Stream **`dist/lb-web-pb_public.tgz`** from your dev machine → **Proxmox** → **`tar` inside the CT** (no **`scp`** or **`pct push`**). Set **`PVE`** to your SSH login (**`root@hostname`** or **`user@hostname`**) and **`CTID`** to the LXC VMID:
+
+```bash
+PVE=root@pve.example.com
+CTID=100
+
+ssh "${PVE}" \
+  "pct exec ${CTID} -- tar xzf - --no-same-owner -C /pb/pb_public && pct exec ${CTID} -- systemctl restart letztes-bier.service" \
+  < dist/lb-web-pb_public.tgz
+```
+
+`ssh` runs on the Proxmox host; **`pct exec`** forwards **stdin** to **`tar`** in the container, which unpacks into **`/pb/pb_public`**. Use **`--no-same-owner`** so GNU **tar** does not try to apply UID/GIDs from the build machine inside LXC (avoids errors like invalid ownership for large subuids). **`make app-bundle`** records **`0:0`** in the archive to match the unpacked tree owned by root in the CT. **`/pb/pb_data`** (DB, autocert) is untouched.
+
 ## Project layout
 
 | Path | Purpose |
@@ -102,5 +127,5 @@ Neither path publishes a container registry by default; build and push `letztes-
 | `Containerfile` | Build SPA → `pb_public`, PocketBase, Debian+systemd vztmpl, optional **`letztes-bier-push`** binary |
 | `cmd/push-api/` | Go Web Push relay (systemd unit **`letztes-bier-push`**, see [docs/PROXMOX.md](docs/PROXMOX.md)) |
 | `go.mod` / `go.sum` | Build dependency for **`letztes-bier-push`** |
-| `Makefile` | `make build` / `make run` / `make clean` / `make proxmox-ct` (Podman default) |
+| `Makefile` | `make build` / `make run` / `make clean` / `make app-bundle` / `make proxmox-ct` (Podman default) |
 | `docs/PROXMOX.md` | Proxmox vztmpl import, `PB_DOMAIN`, firewall, persistence |
