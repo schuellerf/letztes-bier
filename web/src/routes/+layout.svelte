@@ -131,9 +131,18 @@
 			{#if authValid}
 				<div class="flex w-full flex-wrap items-center justify-between gap-2">
 					<a
-						class="font-semibold text-amber-400 hover:text-amber-300"
+						class="flex items-center gap-2 font-semibold text-amber-400 hover:text-amber-300"
 						href={titleHref}
-					>Letztes Bier</a>
+					>
+						<img
+							src={favicon}
+							alt=""
+							class="h-7 w-7 shrink-0"
+							width="28"
+							height="28"
+						/>
+						Letztes Bier
+					</a>
 					<button
 						type="button"
 						class="flex min-h-11 min-w-11 shrink-0 touch-manipulation items-center justify-center border-0 bg-transparent p-1 text-zinc-200 hover:opacity-80"
@@ -169,9 +178,19 @@
 					class="flex w-full flex-wrap items-center justify-between gap-4 md:flex-nowrap"
 				>
 					<div class="flex flex-wrap items-center gap-4">
-						<a class="font-semibold text-amber-400 hover:text-amber-300" href="/"
-							>Letztes Bier</a
+						<a
+							class="flex items-center gap-2 font-semibold text-amber-400 hover:text-amber-300"
+							href="/"
 						>
+							<img
+								src={favicon}
+								alt=""
+								class="h-7 w-7 shrink-0"
+								width="28"
+								height="28"
+							/>
+							Letztes Bier
+						</a>
 						<a class="text-zinc-400 hover:text-zinc-200" href="/bar">Bar</a>
 						<a class="text-zinc-400 hover:text-zinc-200" href="/storage">Lager</a>
 						<a class="text-zinc-400 hover:text-zinc-200" href="/admin/stats">Stats</a>
